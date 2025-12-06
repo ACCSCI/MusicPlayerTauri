@@ -1,2 +1,10 @@
 @import "tailwindcss";
 @plugin "daisyui";
+
+/* 强制让 html, body 和 react 挂载点撑满屏幕 */
+html, body, #root {
+  height: 100%;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* 防止出现双滚动条 */
+}
