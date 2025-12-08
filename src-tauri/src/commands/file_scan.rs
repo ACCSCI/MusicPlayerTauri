@@ -1,39 +1,57 @@
 use jwalk::{WalkDir};
-use anyhow::Result;
+use anyhow::{Context, Error, Result, anyhow, bail};
+use serde_json::error;
 use tauri_helper::auto_collect_command;
-
+use std::path::Path;
 #[derive(serde::Serialize)]
 #[serde(rename_all = "camelCase")]
 pub struct MusicFile {
     path: String,
     name: String,
 }
+// 定义支持的格式常量，方便管理
+const SUPPORTED_EXTS: [&str; 3] = ["mp3", "wav", "flac"];
 
-#[tauri::command(rename_all = "snake_case")]
+
+#[tauri::command()]
 #[auto_collect_command]
-pub fn scan_music(target_dir: String) -> Vec<MusicFile> {
+pub fn add_music(target_file:String)->Result<MusicFile,String>{
+    extract_filename(&target_file)
+        .map(|name| MusicFile{
+            path:target_file,
+            name:name,
+        })
+        .map_err(|err| format!("Error:{}",err))
+
+}
+
+
+#[tauri::command()]
+#[auto_collect_command]
+pub fn scan_music(target_dir: String) -> Result<Vec<MusicFile>,String> {
     println!("targetdir:{target_dir}");
     let mut music_files: Vec<MusicFile> = Vec::new();
+    for entry in WalkDir::new(target_dir){
+        let Ok(entry) = entry else{continue};
+        let path=entry.path();
+        if !path.is_file(){ continue;}
 
-    for entry in WalkDir::new(target_dir).into_iter().filter_map(|e| e.ok()) {
-        let path = entry.path();
-        if path.is_file() {
-            if let Some(extension) = path.extension() {
-                let ext_str = extension.to_string_lossy().to_lowercase();
-                if ext_str == "mp3" || ext_str == "flac" || ext_str == "wav" {
-                    music_files.push(MusicFile {
-                        path: path.to_string_lossy().to_string(),
-                        name: path.file_name().unwrap().to_string_lossy().to_string(),
-                    });
-                }
-            }
-        }
+        let file_name = entry.file_name().to_string_lossy().to_lowercase();
+        if file_name.contains("mp3") || file_name.contains("wav") || file_name.contains("flac"){
+            music_files.push(MusicFile { path: entry.path().to_string_lossy().to_string(),name:file_name});
+        }        
     }
+    
     println!("扫描完成，找到{}首歌", music_files.len());
-    music_files
+    Ok(music_files)
 }
 
 
 
 
-
+fn extract_filename(path:&str)->Result<String>{
+    Path::new(path)
+        .file_stem()
+        .ok_or_else(|| anyhow!("Extracting filename failed: {}", path))
+        .map(|name| name.to_string_lossy().to_string())
+}

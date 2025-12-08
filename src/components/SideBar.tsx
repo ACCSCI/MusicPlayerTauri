@@ -1,17 +1,43 @@
+import { Link, useNavigate } from '@tanstack/react-router';
 import {ClipboardPaste} from 'lucide-react'
+import { open } from '@tauri-apps/plugin-dialog';
+import { usePlayerStore } from '../stores/usePlayerStore';
+import { invoke } from '@tauri-apps/api/core';
+
+
 export default function SideBar() {
+  const {addMusic,scanMusic} = usePlayerStore();
+  const navigate =useNavigate();
+
+  const handleAdd=async()=>{
+    const files = await open({
+    multiple: true,
+    directory: false,
+    });
+    
+  };
+  const handleScan=async()=>{
+    const dir = await open({
+    multiple: false,
+    directory: true,
+    });
+    if (dir){
+      scanMusic(dir);
+    };
+  }
+    
   return (
     <div className="flex flex-col items-center">
       {/* 导航 */}
       <ul className="flex justify-evenly w-full my-2">
         <li>
-          <a>首页</a>
+          <Link to='/'>探索</Link>
         </li>
         <li>
-          <a>探索</a>
+          <Link to='/library'>库</Link>
         </li>
         <li>
-          <a>设置</a>
+          <Link to='/settings'>设置</Link>
         </li>
       </ul>
       {/* 导航 */}
@@ -32,16 +58,16 @@ export default function SideBar() {
 
       {/* 本地音乐 */}
       <div className="divider">本地音乐</div>
-      <div className='flex gap-2'>
-        <button className="btn ">Default</button>
-        <button className="btn ">Default</button>
+      <div className='flex gap-4'>
+        <button className="btn rounded-3xl px-6 py-1" onClick={handleAdd}>添加</button>
+        <button className="btn rounded-3xl px-6 py-1" onClick={handleScan}>扫描</button>
       </div>
       {/* 本地音乐 */}
 
       {/* 歌单 */}
-      <div className="divider">歌单</div>
+      <div className="divider">收藏</div>
         <div className="flex flex-col">
-          <button className="btn">❤我喜欢</button>
+          <button className="btn" onClick={()=>navigate({to:'/collections'})}>❤我喜欢</button>
         </div>
       {/* 歌单 */}
     </div>
