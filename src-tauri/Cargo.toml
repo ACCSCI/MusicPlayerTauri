@@ -28,6 +28,9 @@ walkdir = "2.5.0"
 tauri-helper = "0.2.1"
 anyhow = "1.0.100"
 jwalk = "0.8.1"
+reqwest = "0.12.28"
+tokio = "1.48.0"
+async-openai = "0.32.2"
 
 [workspace]
 members = ["."]

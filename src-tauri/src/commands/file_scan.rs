@@ -1,18 +1,14 @@
+use crate::models::MusicFile;
 use anyhow::{anyhow, bail, Context, Error, Result};
 use jwalk::WalkDir;
 use serde_json::error;
 use std::path::Path;
 use tauri_helper::auto_collect_command;
-#[derive(serde::Serialize)]
-#[serde(rename_all = "camelCase")]
-pub struct MusicFile {
-    path: String,
-    name: String,
-}
+
 // 定义支持的格式常量，方便管理
 const SUPPORTED_EXTS: [&str; 3] = ["mp3", "wav", "flac"];
 
-#[tauri::command()]
+#[tauri::command]
 #[auto_collect_command]
 pub fn add_music(target_file: String) -> Result<MusicFile, String> {
     extract_filename(&target_file)

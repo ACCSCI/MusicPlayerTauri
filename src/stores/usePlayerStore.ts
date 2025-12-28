@@ -18,6 +18,9 @@ interface PlayerState {
   setVolume: (val: number) => void;
   playSong: (song: Song) => void;
   addMusic: (songs: Song[]) => void;
+  setIsPlaying: (state: boolean) => void;
+  playPrev: () => void;
+  playNext: () => void;
 
   // Async Action
   scanMusic: (path: string) => Promise<void>;
@@ -33,6 +36,45 @@ export const usePlayerStore = create<PlayerState>((set, get) => ({
 
   setVolume: (val) => set({ volume: val }),
   playSong: (song) => set({ currentSong: song, isPlaying: true }),
+  setIsPlaying: (state) => set({ isPlaying: state }),
+  playPrev: () => {
+    const state = get(); // 获取当前store状态
+    const { playList, currentSong } = state;
+
+    // 边界处理：列表为空/无当前歌曲时不操作
+    if (playList.length === 0 || !currentSong) return;
+
+    // 找到当前歌曲在列表中的索引
+    const currentIndex = playList.findIndex(
+      (song) => song.path === currentSong.path
+    );
+
+    // 计算下一首索引：第一首一首则切回最后一首（循环播放）
+    const prevIndex = (currentIndex - 1 + playList.length) % playList.length;
+
+    // 获取下一首歌曲并播放
+    const prevSong = playList[prevIndex];
+    set({ currentSong: prevSong, isPlaying: true });
+  },
+  playNext: () => {
+    const state = get(); // 获取当前store状态
+    const { playList, currentSong } = state;
+
+    // 边界处理：列表为空/无当前歌曲时不操作
+    if (playList.length === 0 || !currentSong) return;
+
+    // 找到当前歌曲在列表中的索引
+    const currentIndex = playList.findIndex(
+      (song) => song.path === currentSong.path
+    );
+
+    // 计算下一首索引：最后一首则切回第一首（循环播放）
+    const nextIndex = (currentIndex + 1) % playList.length;
+
+    // 获取下一首歌曲并播放
+    const nextSong = playList[nextIndex];
+    set({ currentSong: nextSong, isPlaying: true });
+  },
 
   scanMusic: async (path) => {
     try {
