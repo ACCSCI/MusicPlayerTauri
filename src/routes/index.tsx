@@ -9,14 +9,11 @@ export const Route = createFileRoute("/")({
 });
 
 function Index() {
-  const handleSend = (msg: string) => {
-    alert(msg);
-  };
   return (
     <div className="flex flex-col justify-center items-center h-full gap-4">
       <h1>本来无一物，何处惹尘埃。</h1>
 
-      <AIChatInput onSend={handleSend} />
+      <AIChatInput />
     </div>
   );
 }

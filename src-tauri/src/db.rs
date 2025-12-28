@@ -1,76 +1,76 @@
 use crate::models::MusicFile;
-use serde::{Deserialize, Serialize};
 use std::fs;
-use std::path::PathBuf;
 use tauri::AppHandle;
-use tauri::Manager; // 用于获取 path_resolver 等
+use tauri::Manager;
 use tauri_helper::auto_collect_command;
 
-// 定义整个数据库的结构
-#[derive(Debug, Serialize, Deserialize, Clone)]
-pub struct AppData {
-    pub songs: Vec<MusicFile>,
-}
+// 定义文件名
+const LIBRARY_FILE: &str = "library.json"; // 存所有歌
+const PLAYLIST_FILE: &str = "playlist.json"; // 存当前歌单
 
-// 定义 JSON 文件名
-const DB_FILENAME: &str = "music_library.json";
-
-// 获取数据库文件路径的辅助函数
-fn get_db_path(app_handle: &AppHandle) -> Result<PathBuf, String> {
-    // 获取 App 的本地数据目录
-    // Windows: C:\Users\Name\AppData\Local\com.your.app\
-    // Mac: /Users/Name/Library/Application Support/com.your.app/
+// --- 私有辅助函数 ---
+fn save_json_file(
+    app_handle: &AppHandle,
+    filename: &str,
+    songs: &Vec<MusicFile>,
+) -> Result<(), String> {
     let app_dir = app_handle
         .path()
         .app_data_dir()
-        .map_err(|e| format!("无法获取数据目录: {}", e))?;
-
-    // 如果目录不存在，创建它
+        .map_err(|e| e.to_string())?;
     if !app_dir.exists() {
-        fs::create_dir_all(&app_dir).map_err(|e| format!("无法创建数据目录: {}", e))?;
+        let _ = fs::create_dir_all(&app_dir);
     }
-
-    Ok(app_dir.join(DB_FILENAME))
-}
-
-// 2. [Command] 保存歌单
-#[tauri::command]
-#[auto_collect_command]
-pub fn save_playlist(app_handle: AppHandle, songs: Vec<MusicFile>) -> Result<(), String> {
-    let path = get_db_path(&app_handle)?;
-
-    // 包装一下数据
-    let data = AppData { songs };
-
-    // 序列化为 JSON 字符串
-    let json_string =
-        serde_json::to_string_pretty(&data).map_err(|e| format!("序列化失败: {}", e))?;
-
-    // 写入文件
-    fs::write(&path, json_string).map_err(|e| format!("写入文件失败: {}", e))?;
-
-    println!("歌单已保存到: {:?}", path);
+    let path = app_dir.join(filename);
+    let json = serde_json::to_string_pretty(songs).map_err(|e| e.to_string())?;
+    fs::write(path, json).map_err(|e| e.to_string())?;
     Ok(())
 }
 
-// 3. [Command] 读取歌单
+fn load_json_file(app_handle: &AppHandle, filename: &str) -> Result<Vec<MusicFile>, String> {
+    let app_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+    let path = app_dir.join(filename);
+    if !path.exists() {
+        return Ok(Vec::new());
+    }
+    let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
+    // 处理空文件情况
+    if content.trim().is_empty() {
+        return Ok(Vec::new());
+    }
+    let songs: Vec<MusicFile> = serde_json::from_str(&content).map_err(|e| e.to_string())?;
+    Ok(songs)
+}
+
+// --- 公开 Commands ---
+
+// 1. [扫描后调用] 保存所有音乐到库
+#[tauri::command]
+#[auto_collect_command]
+pub fn save_to_library(app_handle: AppHandle, songs: Vec<MusicFile>) -> Result<(), String> {
+    save_json_file(&app_handle, LIBRARY_FILE, &songs)
+}
+
+// 2. [启动时/AI调用] 读取所有音乐
+#[tauri::command]
+#[auto_collect_command]
+pub fn load_library(app_handle: AppHandle) -> Result<Vec<MusicFile>, String> {
+    load_json_file(&app_handle, LIBRARY_FILE)
+}
+
+// 3. [AI生成后/用户修改后调用] 保存当前播放列表
+#[tauri::command]
+#[auto_collect_command]
+pub fn save_playlist(app_handle: AppHandle, songs: Vec<MusicFile>) -> Result<(), String> {
+    save_json_file(&app_handle, PLAYLIST_FILE, &songs)
+}
+
+// 4. [启动时调用] 恢复上次的播放列表
 #[tauri::command]
 #[auto_collect_command]
 pub fn load_playlist(app_handle: AppHandle) -> Result<Vec<MusicFile>, String> {
-    let path = get_db_path(&app_handle)?;
-
-    if !path.exists() {
-        // 如果文件不存在，返回空列表
-        return Ok(Vec::new());
-    }
-
-    // 读取文件内容
-    let json_string = fs::read_to_string(&path).map_err(|e| format!("读取文件失败: {}", e))?;
-
-    // 反序列化
-    let data: AppData =
-        serde_json::from_str(&json_string).map_err(|e| format!("解析 JSON 失败: {}", e))?;
-
-    println!("成功加载 {} 首歌", data.songs.len());
-    Ok(data.songs)
+    load_json_file(&app_handle, PLAYLIST_FILE)
 }

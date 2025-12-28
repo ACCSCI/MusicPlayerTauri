@@ -84,7 +84,7 @@ border border-gray-100 shadow-lg ring-1 ring-black/5"
       {/* 隐藏的 Audio 核心 */}
       <audio
         ref={audioRef}
-        src={currentSong?.path ? convertFileSrc(currentSong?.path) : undefined}
+        src={currentSong ? getAssetUrl(currentSong.path) : undefined}
         onTimeUpdate={handleTimeUpdate}
         onLoadedMetadata={handleLoadedMetadata}
         onEnded={playNext} // 播放完自动下一首
@@ -100,7 +100,7 @@ border border-gray-100 shadow-lg ring-1 ring-black/5"
           {/* 左侧：歌曲信息 */}
           <div className="flex items-center gap-3 w-1/3 overflow-visable ">
             <div className="avatar placeholder">
-              <div className="relative bg-neutral text-neutral-content rounded-full  w-10 top-2 ">
+              <div className="relative bg-neutral text-neutral-content rounded-full  w-10 top-3.5">
                 <span className="text-xs">CD</span>
               </div>
             </div>
@@ -176,3 +176,12 @@ border border-gray-100 shadow-lg ring-1 ring-black/5"
     </div>
   );
 }
+
+const getAssetUrl = (path: string) => {
+  // 1. 把所有反斜杠 \ 替换为 正斜杠 /
+  // 虽然 Windows 用 \，但 Web URL 标准只认 /
+  const normalizePath = path.replace(/\\/g, "/");
+
+  // 2. 再转换
+  return convertFileSrc(normalizePath);
+};

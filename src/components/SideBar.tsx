@@ -5,7 +5,7 @@ import { usePlayerStore } from "../stores/usePlayerStore";
 import { invoke } from "@tauri-apps/api/core";
 
 export default function SideBar() {
-  const { addMusic, scanMusic } = usePlayerStore();
+  const { addMusic, scanMusic, playList } = usePlayerStore();
   const navigate = useNavigate();
 
   // const handleAdd=async()=>{
@@ -58,7 +58,12 @@ export default function SideBar() {
       {/* 本地音乐 */}
       <div className="divider">本地音乐</div>
       <div className="flex gap-4">
-        <button className="btn rounded-3xl px-6 py-1" onClick={handleScan}>
+        <button
+          className="btn rounded-3xl px-6 py-1"
+          onClick={() => {
+            handleScan();
+          }}
+        >
           扫描
         </button>
       </div>

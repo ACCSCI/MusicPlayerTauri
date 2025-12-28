@@ -1,15 +1,61 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp } from "lucide-react";
 import clsx from "clsx";
+import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { usePlayerStore } from "../stores/usePlayerStore";
+import { useNavigate } from "@tanstack/react-router";
+interface AIChatInputProps {}
 
-interface AIChatInputProps {
-  onSend: (message: string) => void;
-  isLoading?: boolean;
-}
-
-export function AIChatInput({ onSend, isLoading = false }: AIChatInputProps) {
+export function AIChatInput() {
   const [input, setInput] = useState("");
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const [isLoading, setIsLoading] = useState(false);
+
+  // 1. 获取 Store 里的全量库和设置列表的方法
+  const { fullLibrary, setPlayList } = usePlayerStore();
+
+  const navigate = useNavigate(); // 用于跳转
+
+  const handleSend = async () => {
+    if (!input.trim() || isLoading) return;
+
+    setIsLoading(true);
+    try {
+      console.log("正在请求 AI...");
+
+      // 2. 核心调用：把心情 + 本地所有歌 传给 Rust
+      const result = await invoke("ai_recommend_playlist", {
+        userInput: input,
+        allSongs: fullLibrary, // ★★★ 关键：把仓库里的歌传过去
+      });
+
+      // @ts-ignore (忽略类型检查，或者定义好 Song 数组类型)
+      const recommendedSongs = result as any[];
+
+      if (recommendedSongs.length > 0) {
+        console.log("AI 推荐成功:", recommendedSongs.length);
+
+        // 3. ★★★ 魔法时刻：直接把播放列表替换为 AI 推荐的歌 ★★★
+        setPlayList(recommendedSongs);
+
+        // 4. (可选) 顺便保存这个临时歌单到 backend，这样重启后还在
+        invoke("save_playlist", { songs: recommendedSongs });
+        setInput(""); // 清空
+        // 发送后高度重置
+        if (textareaRef.current) textareaRef.current.style.height = "auto";
+        // 5. 跳转回播放器页面 (歌单页)
+        navigate({ to: "/collections" });
+      } else {
+        alert("AI 似乎没找到匹配的歌，换个说法试试？");
+      }
+    } catch (e) {
+      console.error("AI 失败:", e);
+      alert("AI 出错了，请检查网络或 Key");
+    } finally {
+      setIsLoading(false);
+      setInput("");
+    }
+  };
 
   // 核心功能：自动调整高度 (Auto-resize)
   const adjustHeight = () => {
@@ -24,14 +70,6 @@ export function AIChatInput({ onSend, isLoading = false }: AIChatInputProps) {
   useEffect(() => {
     adjustHeight();
   }, [input]);
-
-  const handleSend = () => {
-    if (!input.trim() || isLoading) return;
-    onSend(input);
-    setInput(""); // 清空
-    // 发送后高度重置
-    if (textareaRef.current) textareaRef.current.style.height = "auto";
-  };
 
   const handleKeyDown = (e: React.KeyboardEvent) => {
     // 监听回车：如果是 Enter 且没有按 Shift，则发送

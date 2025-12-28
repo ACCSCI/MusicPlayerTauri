@@ -7,11 +7,29 @@ export const Route = createFileRoute("/collections/")({
 });
 
 function CollectionsComponent() {
-  const { currentSong, playList, playSong } = usePlayerStore();
-
+  const { currentSong, playList, playSong, fullLibrary, resetPlaylist } =
+    usePlayerStore();
+  // 判断：如果当前播放列表数量 != 全量库数量，说明处于 AI 模式
+  const isAIMode =
+    fullLibrary.length > 0 && playList.length !== fullLibrary.length;
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <h1 className="text-xl font-bold p-4 shrink-0">Collections</h1>
+      {/* ★★★ 只有在 AI 模式下才显示的按钮 ★★★ */}
+      {isAIMode && (
+        <div className="p-2">
+          <button
+            onClick={() => {
+              resetPlaylist(); // 1. 恢复前端状态
+              // 2. 恢复后端存储 (可选，为了严谨)
+              // invoke("save_playlist", { songs: fullLibrary });
+            }}
+            className="bg-red-500 text-white px-4 py-2 rounded w-full"
+          >
+            退出 AI 推荐 (显示全部 {fullLibrary.length} 首)
+          </button>
+        </div>
+      )}
       <div className="flex-1 min-h-0">
         <Virtuoso
           className="h-full w-full "
