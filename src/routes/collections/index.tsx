@@ -15,14 +15,12 @@ function CollectionsComponent() {
   return (
     <div className="h-full flex flex-col overflow-hidden">
       <h1 className="text-xl font-bold p-4 shrink-0">Collections</h1>
-      {/* ★★★ 只有在 AI 模式下才显示的按钮 ★★★ */}
+      {/* 只有在 AI 模式下才显示的按钮 */}
       {isAIMode && (
         <div className="p-2">
           <button
             onClick={() => {
-              resetPlaylist(); // 1. 恢复前端状态
-              // 2. 恢复后端存储 (可选，为了严谨)
-              // invoke("save_playlist", { songs: fullLibrary });
+              resetPlaylist();
             }}
             className="bg-red-500 text-white px-4 py-2 rounded w-full"
           >

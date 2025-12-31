@@ -1,7 +1,7 @@
 import { create } from "zustand";
 import { invoke } from "@tauri-apps/api/core";
 
-interface Song {
+export interface Song {
   path: string;
   name: string;
 }
@@ -42,7 +42,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       // 2. 加载【全量曲库】(用于 AI 检索)
       // 如果第一次运行没有库，就用播放列表充当库，或者为空
       const savedLibrary = await invoke<Song[]>("load_library");
-      set({ fullLibrary: savedPlaylist });
+      if (savedLibrary) {
+        set({ fullLibrary: savedLibrary });
+      } else {
+        set({ fullLibrary: savedPlaylist });
+      }
 
       console.log(
         `初始化完成: 列表${savedPlaylist.length}首, 曲库${savedLibrary.length}首`
@@ -64,10 +68,11 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
     setFullLibrary: (songs) => set({ fullLibrary: songs }),
     setPlayList: (songs) => set({ playList: songs }),
-    // 还原功能：把播放列表重置为全量库
+    // 还原功能：把播放列表重置为全量库，同时保存播放列表
     resetPlaylist: () => {
       const allSongs = get().fullLibrary;
       set({ playList: allSongs });
+      invoke("save_playlist", { songs: allSongs });
     },
     setVolume: (val) => set({ volume: val }),
     playSong: (song) => set({ currentSong: song, isPlaying: true }),

@@ -178,10 +178,8 @@ border border-gray-100 shadow-lg ring-1 ring-black/5"
 }
 
 const getAssetUrl = (path: string) => {
-  // 1. 把所有反斜杠 \ 替换为 正斜杠 /
-  // 虽然 Windows 用 \，但 Web URL 标准只认 /
+  // 把所有反斜杠 \ 替换为 正斜杠 /
   const normalizePath = path.replace(/\\/g, "/");
-
-  // 2. 再转换
+  // 再转换
   return convertFileSrc(normalizePath);
 };

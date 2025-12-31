@@ -3,7 +3,6 @@ use reqwest::Client;
 use serde_json::json;
 use tauri_helper::auto_collect_command;
 
-// ★★★ 请务必替换为你自己的 Key ★★★
 const API_KEY: &str = "sk-wevttzvvnujdcijiobdycobmhymmqnmxxiycqmtrbwxjscwr";
 const API_URL: &str = "https://api.siliconflow.cn/v1/chat/completions";
 

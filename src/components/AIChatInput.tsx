@@ -4,7 +4,7 @@ import clsx from "clsx";
 import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useNavigate } from "@tanstack/react-router";
-interface AIChatInputProps {}
+import { Song } from "../stores/usePlayerStore";
 
 export function AIChatInput() {
   const [input, setInput] = useState("");
@@ -26,16 +26,15 @@ export function AIChatInput() {
       // 2. 核心调用：把心情 + 本地所有歌 传给 Rust
       const result = await invoke("ai_recommend_playlist", {
         userInput: input,
-        allSongs: fullLibrary, // ★★★ 关键：把仓库里的歌传过去
+        allSongs: fullLibrary, // 关键：把仓库里的歌传过去
       });
 
-      // @ts-ignore (忽略类型检查，或者定义好 Song 数组类型)
-      const recommendedSongs = result as any[];
+      const recommendedSongs: Song[] = result as Song[];
 
       if (recommendedSongs.length > 0) {
         console.log("AI 推荐成功:", recommendedSongs.length);
 
-        // 3. ★★★ 魔法时刻：直接把播放列表替换为 AI 推荐的歌 ★★★
+        // 3. 直接把播放列表替换为 AI 推荐的歌
         setPlayList(recommendedSongs);
 
         // 4. (可选) 顺便保存这个临时歌单到 backend，这样重启后还在
