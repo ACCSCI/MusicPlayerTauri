@@ -59,7 +59,7 @@ export default function SideBar() {
       <div className="divider">本地音乐</div>
       <div className="flex gap-4">
         <button
-          className="btn rounded-3xl px-6 py-1"
+          className="btn rounded-full px-6 py-1"
           onClick={() => {
             handleScan();
           }}
@@ -73,7 +73,7 @@ export default function SideBar() {
       <div className="divider">收藏</div>
       <div className="flex flex-col">
         <button
-          className="btn"
+          className="btn rounded-full"
           onClick={() => navigate({ to: "/collections" })}
         >
           ❤我喜欢

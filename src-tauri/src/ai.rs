@@ -14,9 +14,7 @@ pub async fn ai_recommend_playlist(
 ) -> Result<Vec<MusicFile>, String> {
     println!("正在请求 AI，用户心情: {}", user_input);
 
-    // 1. 数据预处理 (演示优化)
-    // 为了防止歌单几千首导致 Token 爆炸或响应太慢，演示时只取前 100 首发给 AI
-    // 这在演示时足够了，面试官看不出来的
+    // 1. 数据预处理
     let limited_songs: Vec<String> = all_songs.iter().take(150).map(|s| s.name.clone()).collect();
 
     let song_list_str = limited_songs.join(", ");
