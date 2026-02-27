@@ -4488,6 +4488,7 @@ dependencies = [
  "anyhow",
  "async-openai",
  "jwalk",
+ "regex",
  "reqwest",
  "serde",
  "serde_json",

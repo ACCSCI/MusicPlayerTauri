@@ -6,6 +6,7 @@ pub mod db;
 pub mod models;
 use ai::*;
 use commands::file_scan::*;
+use commands::online::*;
 use db::*;
 use models::*;
 

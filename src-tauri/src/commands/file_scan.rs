@@ -6,7 +6,7 @@ use std::path::Path;
 use tauri_helper::auto_collect_command;
 
 // 定义支持的格式常量，方便管理
-const SUPPORTED_EXTS: [&str; 3] = ["mp3", "wav", "flac"];
+const SUPPORTED_EXTS: [&str; 4] = ["mp3", "wav", "flac", "m4a"];
 
 #[tauri::command]
 #[auto_collect_command]
@@ -15,6 +15,7 @@ pub fn add_music(target_file: String) -> Result<MusicFile, String> {
         .map(|name| MusicFile {
             path: target_file,
             name: name,
+            is_online: None,
         })
         .map_err(|err| format!("Error:{}", err))
 }
@@ -33,12 +34,13 @@ pub fn scan_music(target_dir: String) -> Result<Vec<MusicFile>, String> {
 
         if let Some(extension) = path.extension() {
             let ext = extension.to_string_lossy().to_lowercase();
-            if ext == "mp3" || ext == "wav" || ext == "flac" {
+            if SUPPORTED_EXTS.contains(&ext.as_str()) {
                 music_files.push(MusicFile {
                     path: path.to_string_lossy().to_string(),
                     // 建议：这里最好存原始文件名 entry.file_name()，而不是转小写后的，
                     // 这样界面显示更好看，但为了最小修改保持原有逻辑，我还是用了 string_lossy
                     name: entry.file_name().to_string_lossy().to_string(),
+                    is_online: None,
                 });
             }
         }

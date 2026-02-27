@@ -4,17 +4,32 @@ import { invoke } from "@tauri-apps/api/core";
 export interface Song {
   path: string;
   name: string;
+  isOnline?: boolean;
 }
 
+export interface Playlist {
+  id: string;
+  name: string;
+  songs: Song[];
+  isSystem?: boolean;
+}
+
+export interface AppSettings {
+  downloadFolder: string | null;
+}
+
+export const LOCAL_PLAYLIST_ID = "local";
+export const FAVORITES_PLAYLIST_ID = "favorites";
+
 interface PlayerState {
-  // Data
   isPlaying: boolean;
   volume: number;
-  playList: Array<Song>;
+  playList: Song[];
   fullLibrary: Song[];
   currentSong: Song | null;
+  playlists: Playlist[];
+  settings: AppSettings;
 
-  // Action
   togglePlay: () => void;
   setVolume: (val: number) => void;
   playSong: (song: Song) => void;
@@ -24,28 +39,41 @@ interface PlayerState {
   playNext: () => void;
   setFullLibrary: (songs: Song[]) => void;
   setPlayList: (songs: Song[]) => void;
-
   resetPlaylist: () => void;
 
-  // Async Action
+  createPlaylist: (name: string, isSystem?: boolean) => void;
+  deletePlaylist: (id: string) => void;
+  addSongToPlaylist: (playlistId: string, song: Song) => void;
+  removeSongFromPlaylist: (playlistId: string, songPath: string) => void;
+  updatePlaylistSongs: (playlistId: string, songs: Song[]) => void;
+  loadPlaylists: () => Promise<void>;
+
   scanMusic: (path: string) => Promise<void>;
-  initPlaylist: () => Promise<void>; // 初始化/刷新歌单的核心方法
+  initPlaylist: () => Promise<void>;
+  loadSettings: () => Promise<void>;
+  setDownloadFolder: (folder: string | null) => Promise<void>;
+  convertOnlineToLocal: (oldPath: string, newPath: string) => void;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
-  // 🔥 核心：异步初始化逻辑（抽成独立方法，方便复用）
   const initPlaylist = async () => {
     try {
-      // 1. 加载【播放列表】(用于显示和播放)
       const savedPlaylist = await invoke<Song[]>("load_playlist");
       set({ playList: savedPlaylist });
-      // 2. 加载【全量曲库】(用于 AI 检索)
-      // 如果第一次运行没有库，就用播放列表充当库，或者为空
       const savedLibrary = await invoke<Song[]>("load_library");
       if (savedLibrary) {
         set({ fullLibrary: savedLibrary });
       } else {
         set({ fullLibrary: savedPlaylist });
+      }
+
+      await get().loadPlaylists();
+
+      // 确保本地音乐歌单存在
+      const state = get();
+      const hasLocalPlaylist = state.playlists.some(p => p.id === LOCAL_PLAYLIST_ID);
+      if (!hasLocalPlaylist) {
+        get().createPlaylist("本地音乐", true);
       }
 
       console.log(
@@ -56,19 +84,43 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     }
   };
 
-  // Store 初始化时立即执行异步逻辑
+  const loadSettings = async () => {
+    try {
+      const settings: AppSettings = await invoke("load_settings");
+      set({ settings: { downloadFolder: settings.downloadFolder } });
+    } catch (e) {
+      console.error("加载设置失败:", e);
+      set({ settings: { downloadFolder: null } });
+    }
+  };
+
+  const setDownloadFolder = async (folder: string | null) => {
+    const newSettings: AppSettings = { downloadFolder: folder };
+    set({ settings: newSettings });
+    try {
+      await invoke("save_settings", { settings: newSettings });
+    } catch (e) {
+      console.error("保存设置失败:", e);
+    }
+  };
+
   initPlaylist();
+  loadSettings();
+
   return {
     isPlaying: false,
     volume: 100,
     playList: [],
     fullLibrary: [],
     currentSong: null,
+    playlists: [],
+    settings: { downloadFolder: null },
     initPlaylist,
+    loadSettings,
+    setDownloadFolder,
     togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
     setFullLibrary: (songs) => set({ fullLibrary: songs }),
     setPlayList: (songs) => set({ playList: songs }),
-    // 还原功能：把播放列表重置为全量库，同时保存播放列表
     resetPlaylist: () => {
       const allSongs = get().fullLibrary;
       set({ playList: allSongs });
@@ -78,42 +130,124 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     playSong: (song) => set({ currentSong: song, isPlaying: true }),
     setIsPlaying: (state) => set({ isPlaying: state }),
     playPrev: () => {
-      const state = get(); // 获取当前store状态
+      const state = get();
       const { playList, currentSong } = state;
-
-      // 边界处理：列表为空/无当前歌曲时不操作
       if (playList.length === 0 || !currentSong) return;
 
-      // 找到当前歌曲在列表中的索引
       const currentIndex = playList.findIndex(
         (song) => song.path === currentSong.path
       );
-
-      // 计算下一首索引：第一首一首则切回最后一首（循环播放）
       const prevIndex = (currentIndex - 1 + playList.length) % playList.length;
-
-      // 获取下一首歌曲并播放
       const prevSong = playList[prevIndex];
       set({ currentSong: prevSong, isPlaying: true });
     },
     playNext: () => {
-      const state = get(); // 获取当前store状态
+      const state = get();
       const { playList, currentSong } = state;
-
-      // 边界处理：列表为空/无当前歌曲时不操作
       if (playList.length === 0 || !currentSong) return;
 
-      // 找到当前歌曲在列表中的索引
       const currentIndex = playList.findIndex(
         (song) => song.path === currentSong.path
       );
-
-      // 计算下一首索引：最后一首则切回第一首（循环播放）
       const nextIndex = (currentIndex + 1) % playList.length;
-
-      // 获取下一首歌曲并播放
       const nextSong = playList[nextIndex];
       set({ currentSong: nextSong, isPlaying: true });
+    },
+
+    createPlaylist: (name: string, isSystem: boolean = false) => {
+      const id = isSystem 
+        ? (name === "本地音乐" ? LOCAL_PLAYLIST_ID : FAVORITES_PLAYLIST_ID)
+        : Date.now().toString();
+      const newPlaylist: Playlist = {
+        id,
+        name,
+        songs: [],
+        isSystem,
+      };
+      const newPlaylists = [...get().playlists, newPlaylist];
+      set({ playlists: newPlaylists });
+      invoke("save_playlists", { playlists: newPlaylists });
+    },
+
+    deletePlaylist: (id: string) => {
+      const newPlaylists = get().playlists.filter((p) => p.id !== id);
+      set({ playlists: newPlaylists });
+      invoke("save_playlists", { playlists: newPlaylists });
+    },
+
+    addSongToPlaylist: (playlistId: string, song: Song) => {
+      const newPlaylists = get().playlists.map((p) => {
+        if (p.id === playlistId) {
+          const exists = p.songs.some((s) => s.path === song.path);
+          if (!exists) {
+            return { ...p, songs: [...p.songs, song] };
+          }
+        }
+        return p;
+      });
+      set({ playlists: newPlaylists });
+      invoke("save_playlists", { playlists: newPlaylists });
+    },
+
+    removeSongFromPlaylist: (playlistId: string, songPath: string) => {
+      const newPlaylists = get().playlists.map((p) => {
+        if (p.id === playlistId) {
+          return { ...p, songs: p.songs.filter((s) => s.path !== songPath) };
+        }
+        return p;
+      });
+      set({ playlists: newPlaylists });
+      invoke("save_playlists", { playlists: newPlaylists });
+    },
+
+    updatePlaylistSongs: (playlistId: string, songs: Song[]) => {
+      const newPlaylists = get().playlists.map((p) => {
+        if (p.id === playlistId) {
+          return { ...p, songs };
+        }
+        return p;
+      });
+      set({ playlists: newPlaylists });
+      invoke("save_playlists", { playlists: newPlaylists });
+    },
+
+    convertOnlineToLocal: (oldPath: string, newPath: string) => {
+      const newPlaylists = get().playlists.map((p) => {
+        const newSongs = p.songs.map((s) => {
+          if (s.path === oldPath) {
+            return { ...s, path: newPath, isOnline: false };
+          }
+          return s;
+        });
+        return { ...p, songs: newSongs };
+      });
+      set({ playlists: newPlaylists });
+      invoke("save_playlists", { playlists: newPlaylists });
+
+      const newPlayList = get().playList.map((s) => {
+        if (s.path === oldPath) {
+          return { ...s, path: newPath, isOnline: false };
+        }
+        return s;
+      });
+      set({ playList: newPlayList, fullLibrary: newPlayList });
+      invoke("save_playlist", { songs: newPlayList });
+      invoke("save_to_library", { songs: newPlayList });
+
+      if (get().currentSong?.path === oldPath) {
+        set({ currentSong: { ...get().currentSong!, path: newPath, isOnline: false } });
+      }
+    },
+
+    loadPlaylists: async () => {
+      try {
+        const savedPlaylists = await invoke<Playlist[]>("load_playlists");
+        if (savedPlaylists) {
+          set({ playlists: savedPlaylists });
+        }
+      } catch (e) {
+        console.error("加载歌单失败:", e);
+      }
     },
 
     scanMusic: async (path) => {
@@ -122,11 +256,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         const newList = mergeUnique(get().playList, songs);
         set({ playList: newList });
         set({ fullLibrary: newList });
-        // 2. 保存到后端【曲库】
-        await invoke("save_to_library", { songs: songs });
 
-        // 3. 保存到后端【播放列表】
-        await invoke("save_playlist", { songs: songs });
+        // 获取本地音乐歌单并添加歌曲
+        const state = get();
+        const localPlaylist = state.playlists.find(p => p.id === LOCAL_PLAYLIST_ID);
+        if (localPlaylist) {
+          const mergedSongs = mergeUnique(localPlaylist.songs, songs);
+          get().updatePlaylistSongs(LOCAL_PLAYLIST_ID, mergedSongs);
+        }
+
+        await invoke("save_to_library", { songs: newList });
+        await invoke("save_playlist", { songs: newList });
       } catch (e) {
         console.error("Rust扫描翻车了:", e);
       }
@@ -138,14 +278,9 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
   };
 });
 
-//Helper Function
 function mergeUnique(origin: Song[], addition: Song[]): Song[] {
   const uniqueMap = new Map<string, Song>();
   origin.forEach((song) => uniqueMap.set(song.path, song));
   addition.forEach((song) => uniqueMap.set(song.path, song));
-  const newList = [];
-  for (let pair of uniqueMap.entries()) {
-    newList.push({ path: pair[0], name: pair[1] });
-  }
   return Array.from(uniqueMap.values());
 }
