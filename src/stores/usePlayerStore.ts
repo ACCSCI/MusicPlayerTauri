@@ -56,6 +56,7 @@ interface PlayerState {
   setLocalLibrary: (songs: Song[]) => void;
   setPlayQueue: (songs: Song[]) => void;
   resetPlayQueue: () => void;
+  clearPlayQueue: () => void;
   setPlayMode: (mode: PlayMode) => void;
   toggleShuffle: () => void;
   toggleRepeat: () => void;
@@ -157,6 +158,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       const allSongs = get().localLibrary;
       set({ playQueue: allSongs, originalQueue: allSongs });
       invoke("save_play_queue", { songs: allSongs });
+    },
+    clearPlayQueue: () => {
+      set({ 
+        playQueue: [], 
+        originalQueue: [], 
+        currentSong: null,
+        isPlaying: false 
+      });
+      invoke("save_play_queue", { songs: [] });
     },
     setVolume: (val) => set({ volume: val }),
     playSong: (song) => {

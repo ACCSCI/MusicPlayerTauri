@@ -2,7 +2,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { usePlayerStore, FAVORITES_PLAYLIST_ID } from "../stores/usePlayerStore";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Play, Pause, SkipBack, SkipForward, Volume2, Heart, Plus, ListMusic, List, X, Download, Shuffle, Repeat, Repeat1 } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, Heart, Plus, ListMusic, List, X, Download, Shuffle, Repeat, Repeat1, Trash2 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 
@@ -33,6 +33,7 @@ export default function PlayerBar() {
     playMode,
     toggleShuffle,
     toggleRepeat,
+    clearPlayQueue,
   } = usePlayerStore();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [progress, setProgress] = useState(0);
@@ -78,6 +79,14 @@ export default function PlayerBar() {
   };
 
   useEffect(() => {
+    if (!currentSong && audioRef.current) {
+      audioRef.current.pause();
+      audioRef.current.src = "";
+      setProgress(0);
+      setDuration(0);
+      return;
+    }
+
     const loadAndPlaySong = async () => {
       if (!currentSong || !audioRef.current) return;
       
@@ -299,7 +308,12 @@ export default function PlayerBar() {
                 <h3 className="font-bold text-lg dark:text-white">播放列表</h3>
                 <span className="text-xs text-gray-500 dark:text-gray-400">共 {playQueue.length} 首</span>
               </div>
-              <button className="btn btn-ghost btn-sm btn-circle" onClick={() => setShowPlayQueue(false)}><X size={18} /></button>
+              <div className="flex items-center gap-1">
+                <button className="btn btn-ghost btn-sm btn-circle text-red-500 hover:bg-red-100 dark:hover:bg-red-500/20" onClick={clearPlayQueue} title="清空播放列表" disabled={playQueue.length === 0}>
+                  <Trash2 size={18} />
+                </button>
+                <button className="btn btn-ghost btn-sm btn-circle" onClick={() => setShowPlayQueue(false)}><X size={18} /></button>
+              </div>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-1">
               {playQueue.length === 0 ? <p className="text-sm text-gray-500 py-4 text-center">播放列表为空</p> : playQueue.map((song: import("../stores/usePlayerStore").Song, index: number) => (
