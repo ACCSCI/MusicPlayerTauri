@@ -7,6 +7,7 @@ export interface Song {
   isOnline?: boolean;
   bvId?: string;
   page?: number;
+  isDownloaded?: boolean;
 }
 
 export interface Playlist {
@@ -242,7 +243,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     },
 
     convertOnlineToLocal: async (oldPath: string, newPath: string, songName: string) => {
-      const newSong = { path: newPath, name: songName, isOnline: false };
+      const newSong = { path: newPath, name: songName, isOnline: true, isDownloaded: true };
       
       await get().loadPlaylists();
       
@@ -264,7 +265,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         }
         const newSongs = p.songs.map((s) => {
           if (s.path === oldPath) {
-            return { ...s, path: newPath, isOnline: false };
+            return { ...s, path: newPath, isOnline: true, isDownloaded: true };
           }
           return s;
         });
@@ -275,7 +276,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
       const updatedPlayQueue = get().playQueue.map((s) => {
         if (s.path === oldPath) {
-          return { ...s, path: newPath, isOnline: false };
+          return { ...s, path: newPath, isOnline: true, isDownloaded: true };
         }
         return s;
       });
@@ -287,10 +288,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
       set({ playQueue: finalPlayQueue });
       invoke("save_play_queue", { songs: finalPlayQueue });
-
-      if (get().currentSong?.path === oldPath) {
-        set({ currentSong: { ...get().currentSong!, path: newPath, isOnline: false } });
-      }
     },
 
     loadPlaylists: async () => {

@@ -147,7 +147,7 @@ export default function PlayerBar() {
   const isOnlineMusic = currentSong?.isOnline === true;
 
   return (
-    <div className="fixed bottom-6 left-1/2 -translate-x-1/2 w-[95%] max-w-6xl">
+    <div className="fixed bottom-3 left-1/2 -translate-x-1/2 w-[95%] max-w-6xl">
       <div className="h-24 rounded-3xl overflow-hidden bg-gray-100/80 dark:bg-gray-900/80 backdrop-blur-2xl border border-white/30 dark:border-white/10 shadow-2xl shadow-black/20 ring-1 ring-black/5">
         <div className="absolute top-0 left-0 right-0 h-px bg-gradient-to-r from-transparent via-white/50 to-transparent" />
         
@@ -216,7 +216,17 @@ export default function PlayerBar() {
                 <Heart size={18} fill={isInFavorites ? "currentColor" : "none"} />
               </button>
               {isOnlineMusic && (
-                <button className="btn btn-ghost btn-circle btn-sm text-gray-600 dark:text-gray-300 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10" onClick={handleDownload} disabled={isDownloading} title="下载">
+                <button 
+                  className={clsx(
+                    "btn btn-ghost btn-circle btn-sm",
+                    currentSong?.isDownloaded 
+                      ? "text-green-500 cursor-not-allowed" 
+                      : "text-gray-600 dark:text-gray-300 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10"
+                  )} 
+                  onClick={handleDownload} 
+                  disabled={isDownloading || currentSong?.isDownloaded} 
+                  title={currentSong?.isDownloaded ? "已下载" : "下载"}
+                >
                   {isDownloading ? <span className="loading loading-spinner loading-xs" /> : <Download size={18} />}
                 </button>
               )}
