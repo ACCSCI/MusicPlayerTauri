@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { usePlayerStore, LOCAL_PLAYLIST_ID } from "../../stores/usePlayerStore";
 import { Virtuoso } from "react-virtuoso";
 import clsx from "clsx";
-import { ListMusic, HardDrive, Trash2, FolderOpen, Plus, X, ListPlus } from "lucide-react";
+import { ListMusic, HardDrive, Trash2, FolderOpen, Plus, X, ListPlus, Play } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useState } from "react";
 
@@ -20,6 +20,7 @@ function CollectionsComponent() {
     currentSong,
     playQueue,
     playSong,
+    playPlaylist,
     localLibrary,
     resetPlayQueue,
     playlists,
@@ -100,7 +101,15 @@ const [contextMenu, setContextMenu] = useState<{
           ) : (
             <ListMusic className="w-6 h-6 text-primary" />
           )}
-          <h1 className="text-xl font-bold">{title}</h1>
+<h1 className="text-xl font-bold">{title}</h1>
+          <button
+            onClick={() => playPlaylist(songs)}
+            className="btn btn-sm bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:scale-105 transition-transform"
+            disabled={songs.length === 0}
+          >
+            <Play size={14} fill="currentColor" />
+            播放全部
+          </button>
           <span className="text-sm text-base-content/50">
             {songs.length} 首
           </span>

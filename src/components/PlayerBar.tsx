@@ -2,7 +2,7 @@ import { convertFileSrc, invoke } from "@tauri-apps/api/core";
 import { usePlayerStore, FAVORITES_PLAYLIST_ID } from "../stores/usePlayerStore";
 import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { Play, Pause, SkipBack, SkipForward, Volume2, Heart, Plus, ListMusic, List, X, Download } from "lucide-react";
+import { Play, Pause, SkipBack, SkipForward, Volume2, Heart, Plus, ListMusic, List, X, Download, Shuffle, Repeat, Repeat1 } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
 import clsx from "clsx";
 
@@ -30,6 +30,9 @@ export default function PlayerBar() {
     showToast,
     toast,
     removeFromPlayQueue,
+    playMode,
+    toggleShuffle,
+    toggleRepeat,
   } = usePlayerStore();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [progress, setProgress] = useState(0);
@@ -206,7 +209,14 @@ export default function PlayerBar() {
             </div>
 
             {/* 中间控制区 */}
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3">
+              <button 
+                className={`btn btn-ghost btn-circle btn-sm ${playMode === 'shuffle' ? 'text-pink-500' : 'text-gray-600 dark:text-gray-300'} hover:bg-gray-200 dark:hover:bg-white/10`} 
+                onClick={toggleShuffle}
+                title={playMode === 'shuffle' ? "随机播放中" : "随机播放"}
+              >
+                <Shuffle size={18} />
+              </button>
               <button className="btn btn-ghost btn-circle btn-sm text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10" onClick={playPrev}>
                 <SkipBack size={20} />
               </button>
@@ -215,6 +225,13 @@ export default function PlayerBar() {
               </button>
               <button className="btn btn-ghost btn-circle btn-sm text-gray-600 dark:text-gray-300 hover:bg-gray-200 dark:hover:bg-white/10" onClick={playNext}>
                 <SkipForward size={20} />
+              </button>
+              <button 
+                className={`btn btn-ghost btn-circle btn-sm ${playMode !== 'sequence' && playMode !== 'shuffle' ? 'text-pink-500' : 'text-gray-600 dark:text-gray-300'} hover:bg-gray-200 dark:hover:bg-white/10`} 
+                onClick={toggleRepeat}
+                title={playMode === 'loop' ? "列表循环" : playMode === 'single' ? "单曲循环" : "顺序播放"}
+              >
+                {playMode === 'single' ? <Repeat1 size={18} /> : <Repeat size={18} />}
               </button>
             </div>
 

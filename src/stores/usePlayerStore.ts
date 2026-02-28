@@ -29,12 +29,16 @@ export interface Toast {
 export const LOCAL_PLAYLIST_ID = "local";
 export const FAVORITES_PLAYLIST_ID = "favorites";
 
+export type PlayMode = 'sequence' | 'shuffle' | 'loop' | 'single';
+
 interface PlayerState {
   isPlaying: boolean;
   volume: number;
   playQueue: Song[];
+  originalQueue: Song[];
   localLibrary: Song[];
   currentSong: Song | null;
+  playMode: PlayMode;
   playlists: Playlist[];
   settings: AppSettings;
   toast: Toast | null;
@@ -42,6 +46,7 @@ interface PlayerState {
   togglePlay: () => void;
   setVolume: (val: number) => void;
   playSong: (song: Song) => void;
+  playPlaylist: (songs: Song[]) => void;
   addMusic: (songs: Song[]) => void;
   addToNext: (song: Song) => void;
   removeFromPlayQueue: (songPath: string) => void;
@@ -51,6 +56,9 @@ interface PlayerState {
   setLocalLibrary: (songs: Song[]) => void;
   setPlayQueue: (songs: Song[]) => void;
   resetPlayQueue: () => void;
+  setPlayMode: (mode: PlayMode) => void;
+  toggleShuffle: () => void;
+  toggleRepeat: () => void;
 
   createPlaylist: (name: string, isSystem?: boolean) => void;
   deletePlaylist: (id: string) => void;
@@ -119,12 +127,23 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
   initPlaylist();
   loadSettings();
 
+  const shuffleArray = <T>(array: T[]): T[] => {
+    const result = [...array];
+    for (let i = result.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      [result[i], result[j]] = [result[j], result[i]];
+    }
+    return result;
+  };
+
   return {
     isPlaying: false,
     volume: 100,
     playQueue: [],
+    originalQueue: [],
     localLibrary: [],
     currentSong: null,
+    playMode: 'sequence',
     playlists: [],
     settings: { downloadFolder: null },
     toast: null,
@@ -136,12 +155,12 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     setPlayQueue: (songs) => set({ playQueue: songs }),
     resetPlayQueue: () => {
       const allSongs = get().localLibrary;
-      set({ playQueue: allSongs });
+      set({ playQueue: allSongs, originalQueue: allSongs });
       invoke("save_play_queue", { songs: allSongs });
     },
     setVolume: (val) => set({ volume: val }),
     playSong: (song) => {
-      const { playQueue, currentSong } = get();
+      const { playQueue, currentSong, playMode, originalQueue } = get();
       const exists = playQueue.some(s => s.path === song.path);
       let newQueue: Song[];
       
@@ -156,33 +175,110 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         newQueue = [...playQueue, song];
       }
       
-      set({ playQueue: newQueue, currentSong: song, isPlaying: true });
+      const newOriginalQueue = playMode === 'shuffle' ? originalQueue : [...newQueue];
+      set({ playQueue: newQueue, originalQueue: newOriginalQueue, currentSong: song, isPlaying: true });
       invoke("save_play_queue", { songs: newQueue });
+    },
+    playPlaylist: (songs: Song[]) => {
+      if (songs.length === 0) return;
+      set({ 
+        playQueue: songs, 
+        originalQueue: songs, 
+        currentSong: songs[0], 
+        isPlaying: true,
+        playMode: 'sequence'
+      });
+      invoke("save_play_queue", { songs });
     },
     setIsPlaying: (state) => set({ isPlaying: state }),
     playPrev: () => {
       const state = get();
-      const { playQueue, currentSong } = state;
+      const { playQueue, currentSong, playMode } = state;
       if (playQueue.length === 0 || !currentSong) return;
 
       const currentIndex = playQueue.findIndex(
         (song) => song.path === currentSong.path
       );
-      const prevIndex = (currentIndex - 1 + playQueue.length) % playQueue.length;
+      
+      let prevIndex: number;
+      if (playMode === 'single') {
+        prevIndex = currentIndex;
+      } else {
+        prevIndex = (currentIndex - 1 + playQueue.length) % playQueue.length;
+      }
       const prevSong = playQueue[prevIndex];
       set({ currentSong: prevSong, isPlaying: true });
     },
     playNext: () => {
       const state = get();
-      const { playQueue, currentSong } = state;
+      const { playQueue, currentSong, playMode } = state;
       if (playQueue.length === 0 || !currentSong) return;
 
       const currentIndex = playQueue.findIndex(
         (song) => song.path === currentSong.path
       );
-      const nextIndex = (currentIndex + 1) % playQueue.length;
+
+      let nextIndex: number;
+      if (playMode === 'single') {
+        nextIndex = currentIndex;
+      } else if (playMode === 'sequence') {
+        nextIndex = currentIndex + 1;
+        if (nextIndex >= playQueue.length) return;
+      } else {
+        nextIndex = (currentIndex + 1) % playQueue.length;
+      }
       const nextSong = playQueue[nextIndex];
       set({ currentSong: nextSong, isPlaying: true });
+    },
+    setPlayMode: (mode: PlayMode) => {
+      const state = get();
+      if (mode === 'shuffle' && state.playMode !== 'shuffle') {
+        const shuffled = shuffleArray(state.playQueue);
+        set({ playMode: mode, playQueue: shuffled, originalQueue: state.playQueue });
+      } else if (mode !== 'shuffle' && state.playMode === 'shuffle') {
+        const currentSong = state.currentSong;
+        const restored = [...state.originalQueue];
+        const newIndex = currentSong ? restored.findIndex(s => s.path === currentSong.path) : 0;
+        set({ playMode: mode, playQueue: restored, originalQueue: [] });
+        if (newIndex > 0) {
+          const [song] = restored.splice(newIndex, 1);
+          restored.unshift(song);
+          set({ playQueue: restored });
+        }
+      } else {
+        set({ playMode: mode });
+      }
+    },
+    toggleShuffle: () => {
+      const state = get();
+      if (state.playMode === 'shuffle') {
+        const currentSong = state.currentSong;
+        const restored = [...state.originalQueue];
+        set({ playMode: 'sequence', playQueue: restored, originalQueue: [] });
+        if (currentSong) {
+          const newIndex = restored.findIndex(s => s.path === currentSong.path);
+          if (newIndex > 0) {
+            const [song] = restored.splice(newIndex, 1);
+            restored.unshift(song);
+            set({ playQueue: restored });
+          }
+        }
+      } else {
+        const shuffled = shuffleArray(state.playQueue);
+        set({ playMode: 'shuffle', playQueue: shuffled, originalQueue: state.playQueue });
+      }
+    },
+    toggleRepeat: () => {
+      const state = get();
+      const modeOrder: PlayMode[] = ['sequence', 'loop', 'single'];
+      const currentIdx = modeOrder.indexOf(state.playMode === 'shuffle' ? 'sequence' : state.playMode);
+      const nextIdx = (currentIdx + 1) % modeOrder.length;
+      const nextMode = modeOrder[nextIdx];
+      if (state.playMode === 'shuffle') {
+        set({ playMode: nextMode });
+      } else {
+        set({ playMode: nextMode });
+      }
     },
 
     createPlaylist: (name: string, isSystem: boolean = false) => {
@@ -321,7 +417,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       set({ playQueue: newQueue });
     },
     addToNext: (song: Song) => {
-      const { playQueue, currentSong } = get();
+      const { playQueue, currentSong, playMode, originalQueue } = get();
       const exists = playQueue.some(s => s.path === song.path);
       if (exists) return;
       
@@ -335,12 +431,17 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       
       const newQueue = [...playQueue];
       newQueue.splice(insertIndex, 0, song);
-      set({ playQueue: newQueue });
+      const newOriginalQueue = playMode === 'shuffle' ? originalQueue : [...newQueue];
+      set({ playQueue: newQueue, originalQueue: newOriginalQueue });
       invoke("save_play_queue", { songs: newQueue });
     },
     removeFromPlayQueue: (songPath: string) => {
+      const { playMode, originalQueue } = get();
       const newQueue = get().playQueue.filter(s => s.path !== songPath);
-      set({ playQueue: newQueue });
+      const newOriginalQueue = playMode === 'shuffle' 
+        ? originalQueue.filter(s => s.path !== songPath) 
+        : [...newQueue];
+      set({ playQueue: newQueue, originalQueue: newOriginalQueue });
       invoke("save_play_queue", { songs: newQueue });
       
       if (get().currentSong?.path === songPath) {
