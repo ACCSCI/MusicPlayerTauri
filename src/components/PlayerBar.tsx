@@ -267,9 +267,13 @@ export default function PlayerBar() {
                   <span className="truncate flex-1 text-sm font-medium dark:text-white">{song.name}</span>
                   <span className={clsx(
                     "text-xs px-2 py-0.5 rounded-full shrink-0",
-                    song.isOnline 
-                      ? "bg-primary/20 text-primary" 
-                      : "bg-green-500/20 text-green-600 dark:text-green-400"
+                    currentSong?.path === song.path
+                      ? (song.isOnline 
+                          ? "bg-white/40 text-white font-bold" 
+                          : "bg-white/40 text-green-200 font-bold")
+                      : (song.isOnline 
+                          ? "bg-primary/20 text-primary" 
+                          : "bg-green-500/20 text-green-600 dark:text-green-400")
                   )}>
                     {song.isOnline ? "在线" : "本地"}
                   </span>

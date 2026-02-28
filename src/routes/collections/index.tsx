@@ -119,9 +119,13 @@ function CollectionsComponent() {
                     <span className="text-left w-full truncate">{song.name}</span>
                     <span className={clsx(
                       "text-xs px-1.5 py-0.5 rounded shrink-0",
-                      song.isOnline 
-                        ? "bg-primary/20 text-primary" 
-                        : "bg-green-500/20 text-green-600 dark:text-green-400"
+                      isActive
+                        ? (song.isOnline 
+                            ? "bg-white/40 text-white font-bold" 
+                            : "bg-white/40 text-green-200 font-bold")
+                        : (song.isOnline 
+                            ? "bg-primary/20 text-primary" 
+                            : "bg-green-500/20 text-green-600 dark:text-green-400")
                     )}>
                       {song.isOnline ? "在线" : "本地"}
                     </span>
