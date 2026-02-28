@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { usePlayerStore, LOCAL_PLAYLIST_ID } from "../../stores/usePlayerStore";
 import { Virtuoso } from "react-virtuoso";
 import clsx from "clsx";
-import { ListMusic, HardDrive, Trash2, FolderOpen, Plus, X } from "lucide-react";
+import { ListMusic, HardDrive, Trash2, FolderOpen, Plus, X, ListPlus } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useState } from "react";
 
@@ -25,6 +25,7 @@ function CollectionsComponent() {
     playlists,
     removeSongFromPlaylist,
     addSongToPlaylist,
+    addToNext,
   } = usePlayerStore();
 
   const search = Route.useSearch();
@@ -33,16 +34,22 @@ function CollectionsComponent() {
   const isAIMode = fullLibrary.length > 0 && playList.length !== fullLibrary.length;
   const userPlaylists = playlists.filter(p => p.id !== LOCAL_PLAYLIST_ID);
 
-  const [contextMenu, setContextMenu] = useState<{
+const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
-    song: { path: string; name: string; isOnline?: boolean };
+    song: { path: string; name: string; isOnline?: boolean; bvId?: string; page?: number };
   } | null>(null);
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
 
-  const handleContextMenu = (e: React.MouseEvent, song: { path: string; name: string; isOnline?: boolean }) => {
+  const handleContextMenu = (e: React.MouseEvent, song: { path: string; name: string; isOnline?: boolean; bvId?: string; page?: number }) => {
     e.preventDefault();
     setContextMenu({ x: e.clientX, y: e.clientY, song });
+  };
+
+  const handleAddToNext = () => {
+    if (!contextMenu) return;
+    addToNext(contextMenu.song);
+    setContextMenu(null);
   };
 
   const handleRemoveFromPlaylist = () => {
@@ -154,12 +161,19 @@ function CollectionsComponent() {
                   <span>查看本地文件</span>
                 </button>
               )}
-              <button
+<button
                 className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
                 onClick={() => setShowAddToPlaylist(true)}
               >
                 <Plus size={16} className="text-green-500" />
                 <span>添加到歌单</span>
+              </button>
+              <button
+                className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
+                onClick={handleAddToNext}
+              >
+                <ListPlus size={16} className="text-purple-500" />
+                <span>添加到下一首</span>
               </button>
               {search.playlistId && search.playlistId !== LOCAL_PLAYLIST_ID && (
                 <button

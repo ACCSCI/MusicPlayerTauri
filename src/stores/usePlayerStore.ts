@@ -42,6 +42,7 @@ interface PlayerState {
   setVolume: (val: number) => void;
   playSong: (song: Song) => void;
   addMusic: (songs: Song[]) => void;
+  addToNext: (song: Song) => void;
   setIsPlaying: (state: boolean) => void;
   playPrev: () => void;
   playNext: () => void;
@@ -308,6 +309,24 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     addMusic: (songs) => {
       const newList = mergeUnique(get().playList, songs);
       set({ playList: newList });
+    },
+    addToNext: (song: Song) => {
+      const { playList, currentSong } = get();
+      const exists = playList.some(s => s.path === song.path);
+      if (exists) return;
+      
+      let insertIndex = playList.length;
+      if (currentSong) {
+        const currentIndex = playList.findIndex(s => s.path === currentSong.path);
+        if (currentIndex !== -1) {
+          insertIndex = currentIndex + 1;
+        }
+      }
+      
+      const newList = [...playList];
+      newList.splice(insertIndex, 0, song);
+      set({ playList: newList });
+      invoke("save_playlist", { songs: newList });
     },
     showToast: (message: string, type: 'success' | 'error' | 'info') => {
       set({ toast: { message, type } });
