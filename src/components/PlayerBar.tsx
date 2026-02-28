@@ -152,7 +152,7 @@ export default function PlayerBar() {
         
         <audio
           ref={audioRef}
-          src={currentSong ? getAssetUrl(currentSong.path, currentSong.isOnline) : undefined}
+          src={currentSong?.bvId ? undefined : (currentSong ? getAssetUrl(currentSong.path, currentSong.isOnline) : undefined)}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onEnded={playNext}
