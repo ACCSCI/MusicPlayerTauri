@@ -1,5 +1,5 @@
 import { Link, useNavigate } from "@tanstack/react-router";
-import { Compass, Library, Settings, Plus, FolderOpen, Music, ListMusic, Trash2, HardDrive, Loader2 } from "lucide-react";
+import { Compass, Library, Settings, Plus, FolderOpen, ListMusic, Trash2, HardDrive, Loader2 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
 import { usePlayerStore, LOCAL_PLAYLIST_ID, FAVORITES_PLAYLIST_ID, Song } from "../stores/usePlayerStore";
@@ -54,18 +54,8 @@ const [isParsing, setIsParsing] = useState(false);
     { to: "/settings", icon: Settings, label: "设置" },
   ];
 
-  return (
+return (
     <div className="flex flex-col h-full bg-gradient-to-b from-base-200 via-base-100 to-base-200 p-4 overflow-y-auto scrollbar-thin">
-      {/* Logo */}
-      <div className="flex items-center gap-3 px-4 py-6">
-        <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-primary to-secondary flex items-center justify-center">
-          <Music className="w-6 h-6 text-white" />
-        </div>
-        <span className="text-xl font-bold bg-gradient-to-r from-primary to-secondary bg-clip-text text-transparent">
-          MusicBox
-        </span>
-      </div>
-
       {/* 导航 */}
       <nav className="flex flex-col gap-2 px-2">
         {navItems.map((item) => (

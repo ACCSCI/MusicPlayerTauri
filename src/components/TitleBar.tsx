@@ -28,7 +28,7 @@ export default function TitleBar() {
         <div className="w-6 h-6 rounded-lg bg-gradient-to-br from-pink-500 via-purple-500 to-indigo-500 flex items-center justify-center shadow-lg">
           <Music className="w-4 h-4 text-white" />
         </div>
-        <span className="font-semibold text-sm dark:text-white">MusicBox</span>
+        <span className="font-semibold text-sm dark:text-white">Sonic</span>
       </div>
 
       <div className="flex items-center gap-1">
