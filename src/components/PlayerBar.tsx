@@ -27,6 +27,8 @@ export default function PlayerBar() {
     playSong,
     settings,
     convertOnlineToLocal,
+    showToast,
+    toast,
   } = usePlayerStore();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [progress, setProgress] = useState(0);
@@ -125,11 +127,11 @@ export default function PlayerBar() {
         songName: currentSong.name,
         downloadFolder: settings.downloadFolder,
       });
-      convertOnlineToLocal(currentSong.path, savedPath);
-      alert("下载成功: " + savedPath);
+      await convertOnlineToLocal(currentSong.path, savedPath, currentSong.name);
+      showToast("下载成功", "success");
     } catch (e) {
       console.error("下载失败:", e);
-      alert("下载失败: " + e);
+      showToast("下载失败", "error");
     } finally {
       setIsDownloading(false);
     }
@@ -262,7 +264,7 @@ export default function PlayerBar() {
                   <div className="w-6 h-6 rounded flex items-center justify-center text-xs">
                     {currentSong?.path === song.path && isPlaying ? <span className="animate-pulse text-pink-500">▶</span> : <span className="text-gray-400">{index + 1}</span>}
                   </div>
-<span className="truncate flex-1 text-sm font-medium dark:text-white">{song.name}</span>
+                  <span className="truncate flex-1 text-sm font-medium dark:text-white">{song.name}</span>
                   <span className={clsx(
                     "text-xs px-2 py-0.5 rounded-full shrink-0",
                     song.isOnline 
@@ -276,6 +278,16 @@ export default function PlayerBar() {
             </div>
           </div>
         </>,
+        document.body
+      )}
+
+      {/* Toast 通知 - 使用 Portal 渲染到 body */}
+      {toast && createPortal(
+        <div className="fixed top-4 right-4 z-[10000]">
+          <div className={`alert alert-${toast.type} shadow-lg`}>
+            <span>{toast.message}</span>
+          </div>
+        </div>,
         document.body
       )}
     </div>

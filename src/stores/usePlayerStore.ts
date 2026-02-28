@@ -18,6 +18,11 @@ export interface AppSettings {
   downloadFolder: string | null;
 }
 
+export interface Toast {
+  message: string;
+  type: 'success' | 'error' | 'info';
+}
+
 export const LOCAL_PLAYLIST_ID = "local";
 export const FAVORITES_PLAYLIST_ID = "favorites";
 
@@ -29,6 +34,7 @@ interface PlayerState {
   currentSong: Song | null;
   playlists: Playlist[];
   settings: AppSettings;
+  toast: Toast | null;
 
   togglePlay: () => void;
   setVolume: (val: number) => void;
@@ -52,7 +58,9 @@ interface PlayerState {
   initPlaylist: () => Promise<void>;
   loadSettings: () => Promise<void>;
   setDownloadFolder: (folder: string | null) => Promise<void>;
-  convertOnlineToLocal: (oldPath: string, newPath: string) => void;
+  showToast: (message: string, type: 'success' | 'error' | 'info') => void;
+  hideToast: () => void;
+  convertOnlineToLocal: (oldPath: string, newPath: string, songName: string) => Promise<void>;
 }
 
 export const usePlayerStore = create<PlayerState>((set, get) => {
@@ -69,7 +77,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
       await get().loadPlaylists();
 
-      // 确保本地音乐歌单存在
       const state = get();
       const hasLocalPlaylist = state.playlists.some(p => p.id === LOCAL_PLAYLIST_ID);
       if (!hasLocalPlaylist) {
@@ -86,8 +93,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
   const loadSettings = async () => {
     try {
-      const settings: AppSettings = await invoke("load_settings");
-      set({ settings: { downloadFolder: settings.downloadFolder } });
+      const settings = await invoke<{ download_folder: string | null }>("load_settings");
+      set({ settings: { downloadFolder: settings.download_folder } });
     } catch (e) {
       console.error("加载设置失败:", e);
       set({ settings: { downloadFolder: null } });
@@ -95,8 +102,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
   };
 
   const setDownloadFolder = async (folder: string | null) => {
-    const newSettings: AppSettings = { downloadFolder: folder };
-    set({ settings: newSettings });
+    const newSettings = { download_folder: folder };
+    set({ settings: { downloadFolder: folder } });
     try {
       await invoke("save_settings", { settings: newSettings });
     } catch (e) {
@@ -115,6 +122,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     currentSong: null,
     playlists: [],
     settings: { downloadFolder: null },
+    toast: null,
     initPlaylist,
     loadSettings,
     setDownloadFolder,
@@ -211,8 +219,27 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       invoke("save_playlists", { playlists: newPlaylists });
     },
 
-    convertOnlineToLocal: (oldPath: string, newPath: string) => {
-      const newPlaylists = get().playlists.map((p) => {
+    convertOnlineToLocal: async (oldPath: string, newPath: string, songName: string) => {
+      const newSong = { path: newPath, name: songName, isOnline: false };
+      
+      await get().loadPlaylists();
+      
+      let currentPlaylists = get().playlists;
+      
+      let hasLocalPlaylist = currentPlaylists.some(p => p.id === LOCAL_PLAYLIST_ID);
+      if (!hasLocalPlaylist) {
+        get().createPlaylist("本地音乐", true);
+        currentPlaylists = get().playlists;
+      }
+      
+      const newPlaylists = currentPlaylists.map((p) => {
+        if (p.id === LOCAL_PLAYLIST_ID) {
+          const exists = p.songs.some((s) => s.path === newPath);
+          if (!exists) {
+            return { ...p, songs: [...p.songs, newSong] };
+          }
+          return p;
+        }
         const newSongs = p.songs.map((s) => {
           if (s.path === oldPath) {
             return { ...s, path: newPath, isOnline: false };
@@ -224,15 +251,21 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       set({ playlists: newPlaylists });
       invoke("save_playlists", { playlists: newPlaylists });
 
-      const newPlayList = get().playList.map((s) => {
+      const updatedPlayList = get().playList.map((s) => {
         if (s.path === oldPath) {
           return { ...s, path: newPath, isOnline: false };
         }
         return s;
       });
-      set({ playList: newPlayList, fullLibrary: newPlayList });
-      invoke("save_playlist", { songs: newPlayList });
-      invoke("save_to_library", { songs: newPlayList });
+
+      const songExists = updatedPlayList.some(s => s.path === newPath);
+      const finalPlayList = songExists 
+        ? updatedPlayList 
+        : [...updatedPlayList, newSong];
+
+      set({ playList: finalPlayList, fullLibrary: finalPlayList });
+      invoke("save_playlist", { songs: finalPlayList });
+      invoke("save_to_library", { songs: finalPlayList });
 
       if (get().currentSong?.path === oldPath) {
         set({ currentSong: { ...get().currentSong!, path: newPath, isOnline: false } });
@@ -257,7 +290,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
         set({ playList: newList });
         set({ fullLibrary: newList });
 
-        // 获取本地音乐歌单并添加歌曲
         const state = get();
         const localPlaylist = state.playlists.find(p => p.id === LOCAL_PLAYLIST_ID);
         if (localPlaylist) {
@@ -274,6 +306,15 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     addMusic: (songs) => {
       const newList = mergeUnique(get().playList, songs);
       set({ playList: newList });
+    },
+    showToast: (message: string, type: 'success' | 'error' | 'info') => {
+      set({ toast: { message, type } });
+      setTimeout(() => {
+        set({ toast: null });
+      }, 3000);
+    },
+    hideToast: () => {
+      set({ toast: null });
     },
   };
 });
