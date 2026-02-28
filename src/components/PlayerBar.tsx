@@ -77,8 +77,11 @@ export default function PlayerBar() {
   useEffect(() => {
     const loadAndPlaySong = async () => {
       if (!currentSong || !audioRef.current) return;
+      
+      const prevProgress = audioRef.current?.currentTime || 0;
+      
       try {
-        if (currentSong.isOnline && currentSong.bvId) {
+        if (currentSong.bvId && !currentSong.isDownloaded) {
           const bytes = await invoke<number[]>("get_bilibili_audio_stream", { 
             bvId: currentSong.bvId,
             page: currentSong.page || null
@@ -90,6 +93,11 @@ export default function PlayerBar() {
         } else {
           audioRef.current.src = getAssetUrl(currentSong.path, false);
         }
+        
+        if (prevProgress > 0) {
+          audioRef.current.currentTime = prevProgress;
+        }
+        
         await audioRef.current.play();
         setIsPlaying(true);
       } catch (e) {
@@ -144,7 +152,7 @@ export default function PlayerBar() {
 
   const userPlaylists = playlists.filter(p => p.id !== "local" && !p.songs.some(s => s.path === currentSong?.path));
   const isInFavorites = currentSong && playlists.find(p => p.id === FAVORITES_PLAYLIST_ID)?.songs.some(s => s.path === currentSong.path);
-  const isOnlineMusic = currentSong?.isOnline === true;
+  const isOnlineMusic = currentSong?.bvId && !currentSong?.isDownloaded;
 
   return (
     <div className="fixed bottom-3 left-1/2 -translate-x-1/2 w-[95%] max-w-6xl">
@@ -153,7 +161,7 @@ export default function PlayerBar() {
         
         <audio
           ref={audioRef}
-          src={currentSong?.bvId ? undefined : (currentSong ? getAssetUrl(currentSong.path, currentSong.isOnline) : undefined)}
+          src={currentSong?.bvId && !currentSong?.isDownloaded ? undefined : (currentSong ? getAssetUrl(currentSong.path, false) : undefined)}
           onTimeUpdate={handleTimeUpdate}
           onLoadedMetadata={handleLoadedMetadata}
           onEnded={playNext}
@@ -215,12 +223,12 @@ export default function PlayerBar() {
               <button className={`btn btn-ghost btn-circle btn-sm ${isInFavorites ? 'text-pink-500' : 'text-gray-600 dark:text-gray-300'} hover:bg-pink-50 dark:hover:bg-pink-500/10`} onClick={handleAddToFavorites} title="添加到喜欢">
                 <Heart size={18} fill={isInFavorites ? "currentColor" : "none"} />
               </button>
-              {isOnlineMusic && (
+              {(currentSong?.bvId || currentSong?.isDownloaded) && (
                 <button 
                   className={clsx(
                     "btn btn-ghost btn-circle btn-sm",
                     currentSong?.isDownloaded 
-                      ? "text-green-500 cursor-not-allowed" 
+                      ? "text-green-500 cursor-not-allowed bg-green-50 dark:bg-green-500/20" 
                       : "text-gray-600 dark:text-gray-300 hover:text-green-500 hover:bg-green-50 dark:hover:bg-green-500/10"
                   )} 
                   onClick={handleDownload} 
@@ -311,8 +319,8 @@ export default function PlayerBar() {
 
       {/* Toast 通知 - 使用 Portal 渲染到 body */}
       {toast && createPortal(
-        <div className="fixed top-4 right-4 z-[10000]">
-          <div className={`alert alert-${toast.type} shadow-lg`}>
+        <div className="fixed top-8 right-8 z-[10000]">
+          <div className={`alert alert-${toast.type} shadow-lg min-w-64 text-sm`}>
             <span>{toast.message}</span>
           </div>
         </div>,

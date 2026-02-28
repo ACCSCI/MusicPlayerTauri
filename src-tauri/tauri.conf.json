@@ -9,12 +9,17 @@
     "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
   },
-  "app": {
+"app": {
     "windows": [
       {
-        "title": "test1",
-        "width": 800,
-        "height": 600
+        "title": "MusicBox",
+        "width": 1200,
+        "height": 800,
+        "minWidth": 800,
+        "minHeight": 600,
+        "decorations": false,
+        "transparent": true,
+        "center": true
       }
     ],
     "security": {
