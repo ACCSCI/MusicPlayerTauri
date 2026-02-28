@@ -2,7 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { usePlayerStore } from "../../stores/usePlayerStore";
 import { Virtuoso } from "react-virtuoso";
 import clsx from "clsx";
-import { ListMusic, HardDrive, Trash2, FolderOpen, Plus, X, ListPlus, Play } from "lucide-react";
+import { ListMusic, HardDrive, Trash2, FolderOpen, Plus, X, ListPlus, Play, Search } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
 import { useState, useEffect } from "react";
 
@@ -42,12 +42,13 @@ function CollectionsComponent() {
     }
   }, [search.playlistId, settings.downloadFolder, scanMusic]);
 
-const [contextMenu, setContextMenu] = useState<{
+  const [contextMenu, setContextMenu] = useState<{
     x: number;
     y: number;
     song: { path: string; name: string; isOnline?: boolean; bvId?: string; page?: number };
   } | null>(null);
   const [showAddToPlaylist, setShowAddToPlaylist] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
 
   const handleContextMenu = (e: React.MouseEvent, song: { path: string; name: string; isOnline?: boolean; bvId?: string; page?: number }) => {
     e.preventDefault();
@@ -83,12 +84,15 @@ const [contextMenu, setContextMenu] = useState<{
     setContextMenu(null);
   };
 
-const availablePlaylists = playlists.filter(
+  const availablePlaylists = playlists.filter(
     p => p.id !== search.playlistId && !p.songs.some(s => s.path === contextMenu?.song.path)
   );
 
   if (search.playlistId) {
     const songs = search.playlistId === 'local' ? localLibrary : (currentPlaylist?.songs || []);
+    const filteredSongs = searchQuery
+      ? songs.filter(song => song.name.toLowerCase().includes(searchQuery.toLowerCase()))
+      : songs;
     const title = search.playlistId === 'local' ? "本地音乐" : (currentPlaylist?.name || "");
 
     return (
@@ -103,60 +107,79 @@ const availablePlaylists = playlists.filter(
           >
             ← 返回
           </button>
-{search.playlistId === 'local' ? (
+          {search.playlistId === 'local' ? (
             <HardDrive className="w-6 h-6 text-blue-500" />
           ) : (
             <ListMusic className="w-6 h-6 text-primary" />
           )}
-<h1 className="text-xl font-bold">{title}</h1>
+          <h1 className="text-xl font-bold">{title}</h1>
           <button
-            onClick={() => playPlaylist(songs)}
+            onClick={() => playPlaylist(filteredSongs)}
             className="btn btn-sm bg-gradient-to-r from-pink-500 to-purple-600 text-white hover:scale-105 transition-transform"
-            disabled={songs.length === 0}
+            disabled={filteredSongs.length === 0}
           >
             <Play size={14} fill="currentColor" />
             播放全部
           </button>
           <span className="text-sm text-base-content/50">
-            {songs.length} 首
+            {filteredSongs.length} 首
           </span>
+          <div className="flex-1" />
+          <div className="relative">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+            <input
+              type="text"
+              placeholder="搜索音乐..."
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              className="input input-sm input-bordered rounded-xl pl-9 w-48"
+            />
+          </div>
         </div>
         <div className="flex-1 min-h-0">
-          <Virtuoso
-            className="h-full w-full"
-            data={songs}
-            itemContent={(_index, song) => {
-              const isActive = currentSong?.path === song.path;
-              return (
-                <div
-                  className={clsx(
-                    "p-3 border-b border-base-300 w-full text-left truncate cursor-pointer transition-colors",
-                    isActive
-                      ? "bg-primary text-primary-content font-bold"
-                      : "hover:bg-base-200"
-                  )}
-                  onClick={() => playSong(song)}
-                  onContextMenu={(e) => handleContextMenu(e, song)}
-                >
-<div className="flex items-center gap-2">
-                    <span className="text-left w-full truncate">{song.name}</span>
-                    <span className={clsx(
-                      "text-xs px-1.5 py-0.5 rounded shrink-0",
+          {filteredSongs.length === 0 && searchQuery && (
+            <div className="flex flex-col items-center justify-center h-full text-gray-500 gap-2">
+              <Search className="w-12 h-12 opacity-30" />
+              <p>没有找到匹配的音乐</p>
+            </div>
+          )}
+          {filteredSongs.length > 0 && (
+            <Virtuoso
+              className="h-full w-full"
+              data={filteredSongs}
+              itemContent={(_index, song) => {
+                const isActive = currentSong?.path === song.path;
+                return (
+                  <div
+                    className={clsx(
+                      "p-3 border-b border-base-300 w-full text-left truncate cursor-pointer transition-colors",
                       isActive
-                        ? (song.isOnline 
-                            ? "bg-white/40 text-white font-bold" 
-                            : "bg-white/40 text-green-200 font-bold")
-                        : (song.isOnline 
-                            ? "bg-primary/20 text-primary" 
-                            : "bg-green-500/20 text-green-600 dark:text-green-400")
-                    )}>
-                      {song.isOnline ? "在线" : "本地"}
-                    </span>
+                        ? "bg-primary text-primary-content font-bold"
+                        : "hover:bg-base-200"
+                    )}
+                    onClick={() => playSong(song)}
+                    onContextMenu={(e) => handleContextMenu(e, song)}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-left w-full truncate">{song.name}</span>
+                      <span className={clsx(
+                        "text-xs px-1.5 py-0.5 rounded shrink-0",
+                        isActive
+                          ? (song.isOnline 
+                              ? "bg-white/40 text-white font-bold" 
+                              : "bg-white/40 text-green-200 font-bold")
+                          : (song.isOnline 
+                              ? "bg-primary/20 text-primary" 
+                              : "bg-green-500/20 text-green-600 dark:text-green-400")
+                      )}>
+                        {song.isOnline ? "在线" : "本地"}
+                      </span>
+                    </div>
                   </div>
-                </div>
-              );
-            }}
-          />
+                );
+              }}
+            />
+          )}
         </div>
 
         {/* 右键菜单 */}
@@ -177,7 +200,7 @@ const availablePlaylists = playlists.filter(
                   <span>查看本地文件</span>
                 </button>
               )}
-<button
+              <button
                 className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors"
                 onClick={() => setShowAddToPlaylist(true)}
               >
