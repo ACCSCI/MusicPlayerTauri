@@ -3,13 +3,13 @@
   "productName": "test1",
   "version": "0.1.0",
   "identifier": "com.cookie.test1",
-  "build": {
+"build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:3000",
     "beforeBuildCommand": "pnpm build",
     "frontendDist": "../dist"
   },
-"app": {
+  "app": {
     "windows": [
       {
         "title": "MusicBox",
@@ -19,11 +19,12 @@
         "minHeight": 600,
         "decorations": false,
         "transparent": true,
-        "center": true
+        "center": true,
+        "devtools": true
       }
     ],
-    "security": {
-      "csp": "default-src 'self' ipc: http://ipc.localhost; img-src 'self' asset: http://asset.localhost media-src 'self' asset: http://asset.localhost stream:;",
+"security": {
+      "csp": "default-src 'self' ipc: http://ipc.localhost; connect-src 'self' https://api.bilibili.com https://*.bilibili.com; img-src 'self' asset: http://asset.localhost https://*; media-src 'self' asset: http://asset.localhost blob: https://*; script-src 'self' 'unsafe-inline';",
       "assetProtocol": {
         "enable": true,
         "scope": [

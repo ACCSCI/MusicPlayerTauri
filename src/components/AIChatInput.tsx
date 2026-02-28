@@ -1,7 +1,7 @@
 import { useState, useRef, useEffect } from "react";
 import { ArrowUp } from "lucide-react";
 import clsx from "clsx";
-import { convertFileSrc, invoke } from "@tauri-apps/api/core";
+import { invoke } from "@tauri-apps/api/core";
 import { usePlayerStore } from "../stores/usePlayerStore";
 import { useNavigate } from "@tanstack/react-router";
 import { Song } from "../stores/usePlayerStore";
@@ -43,7 +43,7 @@ export function AIChatInput() {
         // 发送后高度重置
         if (textareaRef.current) textareaRef.current.style.height = "auto";
         // 5. 跳转回播放器页面 (歌单页)
-        navigate({ to: "/collections" });
+        navigate({ to: "/collections", search: { playlistId: undefined } });
       } else {
         alert("AI 似乎没找到匹配的歌，换个说法试试？");
       }
