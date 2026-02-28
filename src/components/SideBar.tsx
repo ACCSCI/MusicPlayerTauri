@@ -6,20 +6,30 @@ import { usePlayerStore, FAVORITES_PLAYLIST_ID, Song } from "../stores/usePlayer
 import { useState } from "react";
 
 export default function SideBar() {
-  const { scanMusic, playlists, createPlaylist, deletePlaylist, playSong, localLibrary } = usePlayerStore();
+const { scanMusic, playlists, createPlaylist, deletePlaylist, playSong, localLibrary, showToast } = usePlayerStore();
   const navigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
   const [onlineUrl, setOnlineUrl] = useState("");
-const [isParsing, setIsParsing] = useState(false);
+  const [isParsing, setIsParsing] = useState(false);
+  const [isScanning, setIsScanning] = useState(false);
 
-  const handleScan = async () => {
+const handleScan = async () => {
     const dir = await open({
       multiple: false,
       directory: true,
     });
     if (dir) {
-      scanMusic(dir);
+      setIsScanning(true);
+      try {
+        await scanMusic(dir);
+        showToast(`扫描完成，找到${localLibrary.length}首音乐`, "success");
+      } catch (e) {
+        console.error("扫描失败:", e);
+        showToast("扫描失败", "error");
+      } finally {
+        setIsScanning(false);
+      }
     }
   };
 
@@ -116,12 +126,22 @@ return (
               </div>
             </div>
           </button>
-          <button
-            className="w-full flex items-center justify-center gap-2 btn btn-outline btn-sm rounded-xl hover:btn-primary transition-all duration-200"
+<button
+            className="w-full flex items-center justify-center gap-2 btn btn-outline btn-sm rounded-xl hover:btn-primary transition-all duration-200 disabled:opacity-50"
             onClick={handleScan}
+            disabled={isScanning}
           >
-            <FolderOpen className="w-4 h-4" />
-            扫描文件夹
+            {isScanning ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                扫描中...
+              </>
+            ) : (
+              <>
+                <FolderOpen className="w-4 h-4" />
+                扫描文件夹
+              </>
+            )}
           </button>
         </div>
       </div>
