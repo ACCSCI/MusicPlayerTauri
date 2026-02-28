@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Play, Pause, SkipBack, SkipForward, Volume2, Heart, Plus, ListMusic, List, X, Download } from "lucide-react";
 import { useNavigate } from "@tanstack/react-router";
+import clsx from "clsx";
 
 export default function PlayerBar() {
   const getAssetUrl = (path: string, isOnline?: boolean) => {
@@ -261,8 +262,15 @@ export default function PlayerBar() {
                   <div className="w-6 h-6 rounded flex items-center justify-center text-xs">
                     {currentSong?.path === song.path && isPlaying ? <span className="animate-pulse text-pink-500">▶</span> : <span className="text-gray-400">{index + 1}</span>}
                   </div>
-                  <span className="truncate flex-1 text-sm font-medium dark:text-white">{song.name}</span>
-                  {song.isOnline && <span className="text-xs px-2 py-0.5 rounded-full bg-primary/20 text-primary shrink-0">在线</span>}
+<span className="truncate flex-1 text-sm font-medium dark:text-white">{song.name}</span>
+                  <span className={clsx(
+                    "text-xs px-2 py-0.5 rounded-full shrink-0",
+                    song.isOnline 
+                      ? "bg-primary/20 text-primary" 
+                      : "bg-green-500/20 text-green-600 dark:text-green-400"
+                  )}>
+                    {song.isOnline ? "在线" : "本地"}
+                  </span>
                 </div>
               ))}
             </div>

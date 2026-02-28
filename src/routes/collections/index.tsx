@@ -115,11 +115,16 @@ function CollectionsComponent() {
                   onClick={() => playSong(song)}
                   onContextMenu={(e) => handleContextMenu(e, song)}
                 >
-                  <div className="flex items-center gap-2">
+<div className="flex items-center gap-2">
                     <span className="text-left w-full truncate">{song.name}</span>
-                    {song.isOnline && (
-                      <span className="text-xs px-1.5 py-0.5 rounded bg-primary/20 text-primary shrink-0">在线</span>
-                    )}
+                    <span className={clsx(
+                      "text-xs px-1.5 py-0.5 rounded shrink-0",
+                      song.isOnline 
+                        ? "bg-primary/20 text-primary" 
+                        : "bg-green-500/20 text-green-600 dark:text-green-400"
+                    )}>
+                      {song.isOnline ? "在线" : "本地"}
+                    </span>
                   </div>
                 </div>
               );
