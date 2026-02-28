@@ -31,8 +31,8 @@ export const FAVORITES_PLAYLIST_ID = "favorites";
 interface PlayerState {
   isPlaying: boolean;
   volume: number;
-  playList: Song[];
-  fullLibrary: Song[];
+  playQueue: Song[];
+  localLibrary: Song[];
   currentSong: Song | null;
   playlists: Playlist[];
   settings: AppSettings;
@@ -43,12 +43,13 @@ interface PlayerState {
   playSong: (song: Song) => void;
   addMusic: (songs: Song[]) => void;
   addToNext: (song: Song) => void;
+  removeFromPlayQueue: (songPath: string) => void;
   setIsPlaying: (state: boolean) => void;
   playPrev: () => void;
   playNext: () => void;
-  setFullLibrary: (songs: Song[]) => void;
-  setPlayList: (songs: Song[]) => void;
-  resetPlaylist: () => void;
+  setLocalLibrary: (songs: Song[]) => void;
+  setPlayQueue: (songs: Song[]) => void;
+  resetPlayQueue: () => void;
 
   createPlaylist: (name: string, isSystem?: boolean) => void;
   deletePlaylist: (id: string) => void;
@@ -69,13 +70,13 @@ interface PlayerState {
 export const usePlayerStore = create<PlayerState>((set, get) => {
   const initPlaylist = async () => {
     try {
-      const savedPlaylist = await invoke<Song[]>("load_playlist");
-      set({ playList: savedPlaylist });
+      const savedQueue = await invoke<Song[]>("load_play_queue");
+      set({ playQueue: savedQueue });
       const savedLibrary = await invoke<Song[]>("load_library");
       if (savedLibrary) {
-        set({ fullLibrary: savedLibrary });
+        set({ localLibrary: savedLibrary });
       } else {
-        set({ fullLibrary: savedPlaylist });
+        set({ localLibrary: savedQueue });
       }
 
       await get().loadPlaylists();
@@ -87,7 +88,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
 
       console.log(
-        `初始化完成: 列表${savedPlaylist.length}首, 曲库${savedLibrary.length}首`
+        `初始化完成: 播放队列${savedQueue.length}首, 本地曲库${savedLibrary.length}首`
       );
     } catch (e) {
       console.error("加载数据失败:", e);
@@ -120,8 +121,8 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
   return {
     isPlaying: false,
     volume: 100,
-    playList: [],
-    fullLibrary: [],
+    playQueue: [],
+    localLibrary: [],
     currentSong: null,
     playlists: [],
     settings: { downloadFolder: null },
@@ -130,38 +131,56 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     loadSettings,
     setDownloadFolder,
     togglePlay: () => set((state) => ({ isPlaying: !state.isPlaying })),
-    setFullLibrary: (songs) => set({ fullLibrary: songs }),
-    setPlayList: (songs) => set({ playList: songs }),
-    resetPlaylist: () => {
-      const allSongs = get().fullLibrary;
-      set({ playList: allSongs });
-      invoke("save_playlist", { songs: allSongs });
+    setLocalLibrary: (songs) => set({ localLibrary: songs }),
+    setPlayQueue: (songs) => set({ playQueue: songs }),
+    resetPlayQueue: () => {
+      const allSongs = get().localLibrary;
+      set({ playQueue: allSongs });
+      invoke("save_play_queue", { songs: allSongs });
     },
     setVolume: (val) => set({ volume: val }),
-    playSong: (song) => set({ currentSong: song, isPlaying: true }),
+    playSong: (song) => {
+      const { playQueue, currentSong } = get();
+      const exists = playQueue.some(s => s.path === song.path);
+      let newQueue: Song[];
+      
+      if (exists) {
+        newQueue = playQueue;
+      } else if (currentSong) {
+        const currentIndex = playQueue.findIndex(s => s.path === currentSong.path);
+        const insertIndex = currentIndex !== -1 ? currentIndex + 1 : playQueue.length;
+        newQueue = [...playQueue];
+        newQueue.splice(insertIndex, 0, song);
+      } else {
+        newQueue = [...playQueue, song];
+      }
+      
+      set({ playQueue: newQueue, currentSong: song, isPlaying: true });
+      invoke("save_play_queue", { songs: newQueue });
+    },
     setIsPlaying: (state) => set({ isPlaying: state }),
     playPrev: () => {
       const state = get();
-      const { playList, currentSong } = state;
-      if (playList.length === 0 || !currentSong) return;
+      const { playQueue, currentSong } = state;
+      if (playQueue.length === 0 || !currentSong) return;
 
-      const currentIndex = playList.findIndex(
+      const currentIndex = playQueue.findIndex(
         (song) => song.path === currentSong.path
       );
-      const prevIndex = (currentIndex - 1 + playList.length) % playList.length;
-      const prevSong = playList[prevIndex];
+      const prevIndex = (currentIndex - 1 + playQueue.length) % playQueue.length;
+      const prevSong = playQueue[prevIndex];
       set({ currentSong: prevSong, isPlaying: true });
     },
     playNext: () => {
       const state = get();
-      const { playList, currentSong } = state;
-      if (playList.length === 0 || !currentSong) return;
+      const { playQueue, currentSong } = state;
+      if (playQueue.length === 0 || !currentSong) return;
 
-      const currentIndex = playList.findIndex(
+      const currentIndex = playQueue.findIndex(
         (song) => song.path === currentSong.path
       );
-      const nextIndex = (currentIndex + 1) % playList.length;
-      const nextSong = playList[nextIndex];
+      const nextIndex = (currentIndex + 1) % playQueue.length;
+      const nextSong = playQueue[nextIndex];
       set({ currentSong: nextSong, isPlaying: true });
     },
 
@@ -254,21 +273,20 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       set({ playlists: newPlaylists });
       invoke("save_playlists", { playlists: newPlaylists });
 
-      const updatedPlayList = get().playList.map((s) => {
+      const updatedPlayQueue = get().playQueue.map((s) => {
         if (s.path === oldPath) {
           return { ...s, path: newPath, isOnline: false };
         }
         return s;
       });
 
-      const songExists = updatedPlayList.some(s => s.path === newPath);
-      const finalPlayList = songExists 
-        ? updatedPlayList 
-        : [...updatedPlayList, newSong];
+      const songExists = updatedPlayQueue.some(s => s.path === newPath);
+      const finalPlayQueue = songExists 
+        ? updatedPlayQueue 
+        : [...updatedPlayQueue, newSong];
 
-      set({ playList: finalPlayList, fullLibrary: finalPlayList });
-      invoke("save_playlist", { songs: finalPlayList });
-      invoke("save_to_library", { songs: finalPlayList });
+      set({ playQueue: finalPlayQueue });
+      invoke("save_play_queue", { songs: finalPlayQueue });
 
       if (get().currentSong?.path === oldPath) {
         set({ currentSong: { ...get().currentSong!, path: newPath, isOnline: false } });
@@ -289,44 +307,43 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     scanMusic: async (path) => {
       try {
         const songs: Song[] = await invoke("scan_music", { targetDir: path });
-        const newList = mergeUnique(get().playList, songs);
-        set({ playList: newList });
-        set({ fullLibrary: newList });
-
-        const state = get();
-        const localPlaylist = state.playlists.find(p => p.id === LOCAL_PLAYLIST_ID);
-        if (localPlaylist) {
-          const mergedSongs = mergeUnique(localPlaylist.songs, songs);
-          get().updatePlaylistSongs(LOCAL_PLAYLIST_ID, mergedSongs);
-        }
-
-        await invoke("save_to_library", { songs: newList });
-        await invoke("save_playlist", { songs: newList });
+        const newLibrary = mergeUnique(get().localLibrary, songs);
+        set({ localLibrary: newLibrary });
+        invoke("save_to_library", { songs: newLibrary });
       } catch (e) {
         console.error("Rust扫描翻车了:", e);
       }
     },
     addMusic: (songs) => {
-      const newList = mergeUnique(get().playList, songs);
-      set({ playList: newList });
+      const newQueue = mergeUnique(get().playQueue, songs);
+      set({ playQueue: newQueue });
     },
     addToNext: (song: Song) => {
-      const { playList, currentSong } = get();
-      const exists = playList.some(s => s.path === song.path);
+      const { playQueue, currentSong } = get();
+      const exists = playQueue.some(s => s.path === song.path);
       if (exists) return;
       
-      let insertIndex = playList.length;
+      let insertIndex = playQueue.length;
       if (currentSong) {
-        const currentIndex = playList.findIndex(s => s.path === currentSong.path);
+        const currentIndex = playQueue.findIndex(s => s.path === currentSong.path);
         if (currentIndex !== -1) {
           insertIndex = currentIndex + 1;
         }
       }
       
-      const newList = [...playList];
-      newList.splice(insertIndex, 0, song);
-      set({ playList: newList });
-      invoke("save_playlist", { songs: newList });
+      const newQueue = [...playQueue];
+      newQueue.splice(insertIndex, 0, song);
+      set({ playQueue: newQueue });
+      invoke("save_play_queue", { songs: newQueue });
+    },
+    removeFromPlayQueue: (songPath: string) => {
+      const newQueue = get().playQueue.filter(s => s.path !== songPath);
+      set({ playQueue: newQueue });
+      invoke("save_play_queue", { songs: newQueue });
+      
+      if (get().currentSong?.path === songPath) {
+        set({ currentSong: newQueue.length > 0 ? newQueue[0] : null });
+      }
     },
     showToast: (message: string, type: 'success' | 'error' | 'info') => {
       set({ toast: { message, type } });

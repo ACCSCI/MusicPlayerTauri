@@ -18,10 +18,10 @@ export const Route = createFileRoute("/collections/")({
 function CollectionsComponent() {
   const {
     currentSong,
-    playList,
+    playQueue,
     playSong,
-    fullLibrary,
-    resetPlaylist,
+    localLibrary,
+    resetPlayQueue,
     playlists,
     removeSongFromPlaylist,
     addSongToPlaylist,
@@ -31,7 +31,7 @@ function CollectionsComponent() {
   const search = Route.useSearch();
   const isLocalMusic = search.playlistId === LOCAL_PLAYLIST_ID;
   const currentPlaylist = isLocalMusic ? null : playlists.find((p) => p.id === search.playlistId);
-  const isAIMode = fullLibrary.length > 0 && playList.length !== fullLibrary.length;
+  const isAIMode = localLibrary.length > 0 && playQueue.length !== localLibrary.length;
   const userPlaylists = playlists.filter(p => p.id !== LOCAL_PLAYLIST_ID);
 
 const [contextMenu, setContextMenu] = useState<{
@@ -80,7 +80,7 @@ const [contextMenu, setContextMenu] = useState<{
   );
 
   if (search.playlistId) {
-    const songs = isLocalMusic ? fullLibrary : (currentPlaylist?.songs || []);
+    const songs = isLocalMusic ? localLibrary : (currentPlaylist?.songs || []);
     const title = isLocalMusic ? "本地音乐" : (currentPlaylist?.name || "");
 
     return (
@@ -267,10 +267,10 @@ const [contextMenu, setContextMenu] = useState<{
       {isAIMode && (
         <div className="p-2">
           <button
-            onClick={() => resetPlaylist()}
+            onClick={() => resetPlayQueue()}
             className="bg-red-500 text-white px-4 py-2 rounded w-full"
           >
-            退出 AI 推荐 (显示全部 {fullLibrary.length} 首)
+            退出 AI 推荐 (显示全部 {localLibrary.length} 首)
           </button>
         </div>
       )}

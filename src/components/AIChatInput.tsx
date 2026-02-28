@@ -12,7 +12,7 @@ export function AIChatInput() {
   const [isLoading, setIsLoading] = useState(false);
 
   // 1. 获取 Store 里的全量库和设置列表的方法
-  const { fullLibrary, setPlayList } = usePlayerStore();
+  const { localLibrary, setPlayQueue } = usePlayerStore();
 
   const navigate = useNavigate(); // 用于跳转
 
@@ -26,7 +26,7 @@ export function AIChatInput() {
       // 2. 核心调用：把心情 + 本地所有歌 传给 Rust
       const result = await invoke("ai_recommend_playlist", {
         userInput: input,
-        allSongs: fullLibrary, // 关键：把仓库里的歌传过去
+        allSongs: localLibrary, // 关键：把仓库里的歌传过去
       });
 
       const recommendedSongs: Song[] = result as Song[];
@@ -35,7 +35,7 @@ export function AIChatInput() {
         console.log("AI 推荐成功:", recommendedSongs.length);
 
         // 3. 直接把播放列表替换为 AI 推荐的歌
-        setPlayList(recommendedSongs);
+        setPlayQueue(recommendedSongs);
 
         // 4. (可选) 顺便保存这个临时歌单到 backend，这样重启后还在
         invoke("save_playlist", { songs: recommendedSongs });

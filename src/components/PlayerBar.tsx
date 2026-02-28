@@ -23,12 +23,13 @@ export default function PlayerBar() {
     isPlaying,
     playlists,
     addSongToPlaylist,
-    playList,
+    playQueue,
     playSong,
     settings,
     convertOnlineToLocal,
     showToast,
     toast,
+    removeFromPlayQueue,
   } = usePlayerStore();
   const audioRef = useRef<HTMLAudioElement>(null);
   const [progress, setProgress] = useState(0);
@@ -259,12 +260,15 @@ export default function PlayerBar() {
           <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-40" onClick={() => setShowPlayQueue(false)} />
           <div className="fixed right-0 top-0 bottom-0 w-80 max-w-[85vw] bg-white/95 dark:bg-gray-900/95 backdrop-blur-2xl shadow-2xl z-[9999] flex flex-col border-l border-white/20">
             <div className="flex items-center justify-between p-5 border-b border-gray-200/20 dark:border-white/10">
-              <h3 className="font-bold text-lg dark:text-white">播放列表</h3>
+              <div className="flex items-center gap-2">
+                <h3 className="font-bold text-lg dark:text-white">播放列表</h3>
+                <span className="text-xs text-gray-500 dark:text-gray-400">共 {playQueue.length} 首</span>
+              </div>
               <button className="btn btn-ghost btn-sm btn-circle" onClick={() => setShowPlayQueue(false)}><X size={18} /></button>
             </div>
             <div className="flex-1 overflow-y-auto p-3 space-y-1">
-              {playList.length === 0 ? <p className="text-sm text-gray-500 py-4 text-center">播放列表为空</p> : playList.map((song, index) => (
-                <div key={`${song.path}-${index}`} className={`flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all ${currentSong?.path === song.path ? "bg-gradient-to-r from-pink-500/20 to-purple-500/20 text-pink-600 dark:text-pink-400" : "hover:bg-gray-100 dark:hover:bg-white/5"}`} onClick={() => playSong(song)}>
+              {playQueue.length === 0 ? <p className="text-sm text-gray-500 py-4 text-center">播放列表为空</p> : playQueue.map((song: import("../stores/usePlayerStore").Song, index: number) => (
+                <div key={`${song.path}-${index}`} className={`group flex items-center gap-3 p-3 rounded-2xl cursor-pointer transition-all ${currentSong?.path === song.path ? "bg-gradient-to-r from-pink-500/20 to-purple-500/20 text-pink-600 dark:text-pink-400" : "hover:bg-gray-100 dark:hover:bg-white/5"}`} onClick={() => playSong(song)}>
                   <div className="w-6 h-6 rounded flex items-center justify-center text-xs">
                     {currentSong?.path === song.path && isPlaying ? <span className="animate-pulse text-pink-500">▶</span> : <span className="text-gray-400">{index + 1}</span>}
                   </div>
@@ -281,6 +285,12 @@ export default function PlayerBar() {
                   )}>
                     {song.isOnline ? "在线" : "本地"}
                   </span>
+                  <button 
+                    className="opacity-0 group-hover:opacity-100 p-1 hover:bg-red-100 dark:hover:bg-red-500/20 rounded transition-all"
+                    onClick={(e) => { e.stopPropagation(); removeFromPlayQueue(song.path); }}
+                  >
+                    <X size={14} className="text-red-500" />
+                  </button>
                 </div>
               ))}
             </div>

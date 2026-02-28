@@ -5,10 +5,50 @@ use tauri::AppHandle;
 use tauri::Manager;
 use tauri_helper::auto_collect_command;
 
-const LIBRARY_FILE: &str = "library.json";
-const PLAYLIST_FILE: &str = "playlist.json";
+const LIBRARY_FILE: &str = "local_library.json";
+const PLAYQUEUE_FILE: &str = "play_queue.json";
 const PLAYLISTS_FILE: &str = "playlists.json";
 const SETTINGS_FILE: &str = "settings.json";
+
+const OLD_LIBRARY_FILE: &str = "library.json";
+const OLD_PLAYLIST_FILE: &str = "playlist.json";
+
+fn migrate_old_data(app_handle: &AppHandle) -> Result<(), String> {
+    let app_dir = app_handle
+        .path()
+        .app_data_dir()
+        .map_err(|e| e.to_string())?;
+
+    if !app_dir.exists() {
+        let _ = fs::create_dir_all(&app_dir);
+    }
+
+    // 迁移 library.json -> local_library.json
+    let old_library_path = app_dir.join(OLD_LIBRARY_FILE);
+    let new_library_path = app_dir.join(LIBRARY_FILE);
+    if old_library_path.exists() && !new_library_path.exists() {
+        if let Ok(content) = fs::read_to_string(&old_library_path) {
+            if !content.trim().is_empty() {
+                fs::write(&new_library_path, &content).map_err(|e| e.to_string())?;
+                println!("[迁移] library.json -> local_library.json 完成");
+            }
+        }
+    }
+
+    // 迁移 playlist.json -> play_queue.json
+    let old_playlist_path = app_dir.join(OLD_PLAYLIST_FILE);
+    let new_playlist_path = app_dir.join(PLAYQUEUE_FILE);
+    if old_playlist_path.exists() && !new_playlist_path.exists() {
+        if let Ok(content) = fs::read_to_string(&old_playlist_path) {
+            if !content.trim().is_empty() {
+                fs::write(&new_playlist_path, &content).map_err(|e| e.to_string())?;
+                println!("[迁移] playlist.json -> play_queue.json 完成");
+            }
+        }
+    }
+
+    Ok(())
+}
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, Default)]
 pub struct AppSettings {
@@ -101,19 +141,21 @@ pub fn save_to_library(app_handle: AppHandle, songs: Vec<MusicFile>) -> Result<(
 #[tauri::command]
 #[auto_collect_command]
 pub fn load_library(app_handle: AppHandle) -> Result<Vec<MusicFile>, String> {
+    migrate_old_data(&app_handle)?;
     load_json_file(&app_handle, LIBRARY_FILE).or_else(|_| Ok(vec![]))
 }
 
 #[tauri::command]
 #[auto_collect_command]
-pub fn save_playlist(app_handle: AppHandle, songs: Vec<MusicFile>) -> Result<(), String> {
-    save_json_file(&app_handle, PLAYLIST_FILE, &songs)
+pub fn save_play_queue(app_handle: AppHandle, songs: Vec<MusicFile>) -> Result<(), String> {
+    save_json_file(&app_handle, PLAYQUEUE_FILE, &songs)
 }
 
 #[tauri::command]
 #[auto_collect_command]
-pub fn load_playlist(app_handle: AppHandle) -> Result<Vec<MusicFile>, String> {
-    load_json_file(&app_handle, PLAYLIST_FILE).or_else(|_| Ok(vec![]))
+pub fn load_play_queue(app_handle: AppHandle) -> Result<Vec<MusicFile>, String> {
+    migrate_old_data(&app_handle)?;
+    load_json_file(&app_handle, PLAYQUEUE_FILE).or_else(|_| Ok(vec![]))
 }
 
 #[tauri::command]

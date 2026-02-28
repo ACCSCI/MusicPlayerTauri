@@ -6,7 +6,7 @@ import { usePlayerStore, LOCAL_PLAYLIST_ID, FAVORITES_PLAYLIST_ID, Song } from "
 import { useState } from "react";
 
 export default function SideBar() {
-  const { scanMusic, playlists, createPlaylist, deletePlaylist, playSong, fullLibrary } = usePlayerStore();
+  const { scanMusic, playlists, createPlaylist, deletePlaylist, playSong, localLibrary } = usePlayerStore();
   const navigate = useNavigate();
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [newPlaylistName, setNewPlaylistName] = useState("");
@@ -122,7 +122,7 @@ const [isParsing, setIsParsing] = useState(false);
             <div className="flex-1 text-left">
               <div className="font-medium">本地音乐</div>
 <div className="text-xs text-base-content/50">
-                {fullLibrary.length} 首
+                {localLibrary.length} 首
               </div>
             </div>
           </button>
