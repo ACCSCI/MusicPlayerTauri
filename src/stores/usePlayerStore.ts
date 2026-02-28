@@ -26,7 +26,6 @@ export interface Toast {
   type: 'success' | 'error' | 'info';
 }
 
-export const LOCAL_PLAYLIST_ID = "local";
 export const FAVORITES_PLAYLIST_ID = "favorites";
 
 export type PlayMode = 'sequence' | 'shuffle' | 'loop' | 'single';
@@ -90,12 +89,6 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
       }
 
       await get().loadPlaylists();
-
-      const state = get();
-      const hasLocalPlaylist = state.playlists.some(p => p.id === LOCAL_PLAYLIST_ID);
-      if (!hasLocalPlaylist) {
-        get().createPlaylist("本地音乐", true);
-      }
 
       console.log(
         `初始化完成: 播放队列${savedQueue.length}首, 本地曲库${savedLibrary.length}首`
@@ -293,7 +286,7 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
 
     createPlaylist: (name: string, isSystem: boolean = false) => {
       const id = isSystem 
-        ? (name === "本地音乐" ? LOCAL_PLAYLIST_ID : FAVORITES_PLAYLIST_ID)
+        ? FAVORITES_PLAYLIST_ID
         : Date.now().toString();
       const newPlaylist: Playlist = {
         id,
@@ -351,24 +344,14 @@ export const usePlayerStore = create<PlayerState>((set, get) => {
     convertOnlineToLocal: async (oldPath: string, newPath: string, songName: string) => {
       const newSong = { path: newPath, name: songName, isOnline: false, isDownloaded: true };
       
+      const newLibrary = mergeUnique(get().localLibrary, [newSong]);
+      set({ localLibrary: newLibrary });
+      invoke("save_to_library", { songs: newLibrary });
+
       await get().loadPlaylists();
       
-      let currentPlaylists = get().playlists;
-      
-      let hasLocalPlaylist = currentPlaylists.some(p => p.id === LOCAL_PLAYLIST_ID);
-      if (!hasLocalPlaylist) {
-        get().createPlaylist("本地音乐", true);
-        currentPlaylists = get().playlists;
-      }
-      
+      const currentPlaylists = get().playlists;
       const newPlaylists = currentPlaylists.map((p) => {
-        if (p.id === LOCAL_PLAYLIST_ID) {
-          const exists = p.songs.some((s) => s.path === newPath);
-          if (!exists) {
-            return { ...p, songs: [...p.songs, newSong] };
-          }
-          return p;
-        }
         const newSongs = p.songs.map((s) => {
           if (s.path === oldPath) {
             return { ...s, path: newPath, isOnline: false, isDownloaded: true };

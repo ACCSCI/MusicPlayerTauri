@@ -2,7 +2,7 @@ import { Link, useNavigate } from "@tanstack/react-router";
 import { Compass, Library, Settings, Plus, FolderOpen, ListMusic, Trash2, HardDrive, Loader2 } from "lucide-react";
 import { open } from "@tauri-apps/plugin-dialog";
 import { invoke } from "@tauri-apps/api/core";
-import { usePlayerStore, LOCAL_PLAYLIST_ID, FAVORITES_PLAYLIST_ID, Song } from "../stores/usePlayerStore";
+import { usePlayerStore, FAVORITES_PLAYLIST_ID, Song } from "../stores/usePlayerStore";
 import { useState } from "react";
 
 export default function SideBar() {
@@ -104,7 +104,7 @@ return (
         <div className="flex flex-col gap-2">
           <button
             className="flex items-center gap-3 p-3 rounded-xl bg-base-200 hover:bg-base-300 transition-colors group"
-            onClick={() => navigate({ to: "/collections", search: { playlistId: LOCAL_PLAYLIST_ID } })}
+            onClick={() => navigate({ to: "/collections", search: { playlistId: 'local' } })}
           >
             <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-cyan-400 flex items-center justify-center">
               <HardDrive className="w-5 h-5 text-white" />
@@ -157,7 +157,7 @@ return (
             </div>
           ))}
           
-          {playlists.filter(p => p.id !== LOCAL_PLAYLIST_ID && p.id !== FAVORITES_PLAYLIST_ID).map((playlist) => (
+          {playlists.filter(p => p.id !== FAVORITES_PLAYLIST_ID).map((playlist) => (
             <div
               key={playlist.id}
               className="group flex items-center gap-3 px-3 py-2 rounded-lg text-sm hover:bg-base-300/50 transition-colors cursor-pointer"

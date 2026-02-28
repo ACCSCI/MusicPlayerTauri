@@ -1,10 +1,10 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { usePlayerStore, LOCAL_PLAYLIST_ID } from "../../stores/usePlayerStore";
+import { usePlayerStore } from "../../stores/usePlayerStore";
 import { Virtuoso } from "react-virtuoso";
 import clsx from "clsx";
 import { ListMusic, HardDrive, Trash2, FolderOpen, Plus, X, ListPlus, Play } from "lucide-react";
 import { invoke } from "@tauri-apps/api/core";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 
 export const Route = createFileRoute("/collections/")({
   component: CollectionsComponent,
@@ -27,13 +27,20 @@ function CollectionsComponent() {
     removeSongFromPlaylist,
     addSongToPlaylist,
     addToNext,
+    scanMusic,
+    settings,
   } = usePlayerStore();
 
   const search = Route.useSearch();
-  const isLocalMusic = search.playlistId === LOCAL_PLAYLIST_ID;
-  const currentPlaylist = isLocalMusic ? null : playlists.find((p) => p.id === search.playlistId);
+  const currentPlaylist = playlists.find((p) => p.id === search.playlistId);
   const isAIMode = localLibrary.length > 0 && playQueue.length !== localLibrary.length;
-  const userPlaylists = playlists.filter(p => p.id !== LOCAL_PLAYLIST_ID);
+  const userPlaylists = playlists;
+
+  useEffect(() => {
+    if (search.playlistId === 'local' && settings.downloadFolder) {
+      scanMusic(settings.downloadFolder);
+    }
+  }, [search.playlistId, settings.downloadFolder, scanMusic]);
 
 const [contextMenu, setContextMenu] = useState<{
     x: number;
@@ -76,13 +83,13 @@ const [contextMenu, setContextMenu] = useState<{
     setContextMenu(null);
   };
 
-  const availablePlaylists = playlists.filter(
-    p => p.id !== search.playlistId && p.id !== LOCAL_PLAYLIST_ID && !p.songs.some(s => s.path === contextMenu?.song.path)
+const availablePlaylists = playlists.filter(
+    p => p.id !== search.playlistId && !p.songs.some(s => s.path === contextMenu?.song.path)
   );
 
   if (search.playlistId) {
-    const songs = isLocalMusic ? localLibrary : (currentPlaylist?.songs || []);
-    const title = isLocalMusic ? "本地音乐" : (currentPlaylist?.name || "");
+    const songs = search.playlistId === 'local' ? localLibrary : (currentPlaylist?.songs || []);
+    const title = search.playlistId === 'local' ? "本地音乐" : (currentPlaylist?.name || "");
 
     return (
       <div 
@@ -96,7 +103,7 @@ const [contextMenu, setContextMenu] = useState<{
           >
             ← 返回
           </button>
-          {isLocalMusic ? (
+{search.playlistId === 'local' ? (
             <HardDrive className="w-6 h-6 text-blue-500" />
           ) : (
             <ListMusic className="w-6 h-6 text-primary" />
@@ -184,7 +191,7 @@ const [contextMenu, setContextMenu] = useState<{
                 <ListPlus size={16} className="text-purple-500" />
                 <span>添加到下一首</span>
               </button>
-              {search.playlistId && search.playlistId !== LOCAL_PLAYLIST_ID && (
+              {search.playlistId && search.playlistId !== 'local' && (
                 <button
                   className="w-full px-4 py-2.5 text-left flex items-center gap-3 hover:bg-gray-100 dark:hover:bg-white/10 transition-colors text-red-500"
                   onClick={handleRemoveFromPlaylist}
