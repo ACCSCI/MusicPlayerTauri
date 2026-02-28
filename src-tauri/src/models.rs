@@ -8,6 +8,10 @@ pub struct MusicFile {
     pub name: String,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub is_online: Option<bool>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub bv_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub page: Option<u32>,
 }
 
 #[derive(Debug, Serialize, Deserialize, Clone)]

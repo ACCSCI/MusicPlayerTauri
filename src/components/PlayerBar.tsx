@@ -77,8 +77,11 @@ export default function PlayerBar() {
     const loadAndPlaySong = async () => {
       if (!currentSong || !audioRef.current) return;
       try {
-        if (currentSong.isOnline) {
-          const bytes = await invoke<number[]>("get_bilibili_audio_stream", { audioUrl: currentSong.path });
+        if (currentSong.isOnline && currentSong.bvId) {
+          const bytes = await invoke<number[]>("get_bilibili_audio_stream", { 
+            bvId: currentSong.bvId,
+            page: currentSong.page || null
+          });
           const uint8Array = new Uint8Array(bytes);
           const blob = new Blob([uint8Array], { type: "audio/mp4" });
           const blobUrl = URL.createObjectURL(blob);
@@ -115,7 +118,7 @@ export default function PlayerBar() {
   };
 
   const handleDownload = async () => {
-    if (!currentSong || !currentSong.isOnline) return;
+    if (!currentSong || !currentSong.isOnline || !currentSong.bvId) return;
     if (!settings.downloadFolder) {
       navigate({ to: '/settings' });
       return;
@@ -123,7 +126,8 @@ export default function PlayerBar() {
     setIsDownloading(true);
     try {
       const savedPath = await invoke<string>("download_bilibili_audio", {
-        audioUrl: currentSong.path,
+        bvId: currentSong.bvId,
+        page: currentSong.page || null,
         songName: currentSong.name,
         downloadFolder: settings.downloadFolder,
       });

@@ -30,7 +30,15 @@ pub async fn parse_bilibili_url(url: String) -> Result<MusicFile, String> {
     let bv_id = bv_regex
         .find(&url)
         .ok_or("无法从链接中提取BV号")?
-        .as_str();
+        .as_str()
+        .to_string();
+
+    let page_regex = Regex::new(r"[?&]p=(\d+)").map_err(|e| e.to_string())?;
+    let page: u32 = page_regex
+        .captures(&url)
+        .and_then(|c| c.get(1))
+        .map(|m| m.as_str().parse().unwrap_or(1))
+        .unwrap_or(1);
 
     let api_url = format!(
         "https://api.bilibili.com/x/web-interface/view?bvid={}",
@@ -58,7 +66,97 @@ pub async fn parse_bilibili_url(url: String) -> Result<MusicFile, String> {
     let title = data["title"].as_str().unwrap_or("未知标题").to_string();
     let author = data["owner"]["name"].as_str().unwrap_or("未知作者").to_string();
 
-    let cid = data["cid"].as_u64().ok_or("无法获取视频CID")?;
+    let pages = data["pages"].as_array().ok_or("无法获取视频分P信息")?;
+    let page_index = (page - 1) as usize;
+    let page_data = pages.get(page_index).ok_or(format!("分P {} 不存在", page))?;
+    let cid = page_data["cid"].as_u64().ok_or("无法获取分P的CID")?;
+    let aid = data["aid"].as_u64().ok_or("无法获取视频AID")?;
+
+    let page_title = page_data["part"].as_str().unwrap_or("");
+
+    let play_url = format!(
+        "https://api.bilibili.com/x/player/playurl?avid={}&cid={}&qn=80&fnval=16",
+        aid, cid
+    );
+
+    let play_response = client
+        .get(&play_url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .header("Referer", "https://www.bilibili.com/")
+        .send()
+        .await
+        .map_err(|e| format!("获取播放地址失败: {}", e))?;
+
+    let play_json: serde_json::Value = play_response
+        .json()
+        .await
+        .map_err(|e| format!("解析播放地址失败: {}", e))?;
+
+    let audio_info = play_json["data"]["dash"]["audio"]
+        .as_array()
+        .and_then(|arr| arr.first());
+
+    let _audio_url = audio_info
+        .and_then(|a| a["baseUrl"].as_str())
+        .ok_or("无法获取音频播放地址")?;
+
+    let codec = audio_info
+        .and_then(|a| a["codecs"].as_str())
+        .unwrap_or("unknown");
+
+    println!("音频格式: {}, BV: {}, P: {}", codec, bv_id, page);
+    
+    let song_name = if page > 1 {
+        format!("{} - {} [P{}. {}]", author, title, page, page_title)
+    } else {
+        format!("{} - {}", author, title)
+    };
+    
+    println!("成功解析: {}", song_name);
+
+    Ok(MusicFile {
+        path: bv_id.clone(),
+        name: song_name,
+        is_online: Some(true),
+        bv_id: Some(bv_id),
+        page: Some(page),
+    })
+}
+
+#[tauri::command]
+#[auto_collect_command]
+pub async fn get_bilibili_audio_stream(bv_id: String, page: Option<u32>) -> Result<Vec<u8>, String> {
+    let page = page.unwrap_or(1);
+    let bv_id_raw = bv_id.trim_start_matches("BV");
+    
+    let api_url = format!(
+        "https://api.bilibili.com/x/web-interface/view?bvid={}",
+        bv_id_raw
+    );
+
+    let client = get_client();
+    let response = client
+        .get(&api_url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .send()
+        .await
+        .map_err(|e| format!("请求B站API失败: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("B站API返回错误: {}", response.status()));
+    }
+
+    let json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("解析B站响应失败: {}", e))?;
+
+    let data = json.get("data").ok_or("B站API返回数据为空")?;
+    
+    let pages = data["pages"].as_array().ok_or("无法获取视频分P信息")?;
+    let page_index = (page - 1) as usize;
+    let page_data = pages.get(page_index).ok_or(format!("分P {} 不存在", page))?;
+    let cid = page_data["cid"].as_u64().ok_or("无法获取分P的CID")?;
     let aid = data["aid"].as_u64().ok_or("无法获取视频AID")?;
 
     let play_url = format!(
@@ -87,38 +185,19 @@ pub async fn parse_bilibili_url(url: String) -> Result<MusicFile, String> {
         .and_then(|a| a["baseUrl"].as_str())
         .ok_or("无法获取音频播放地址")?;
 
-    let codec = audio_info
-        .and_then(|a| a["codecs"].as_str())
-        .unwrap_or("unknown");
-
-    println!("音频格式: {}, URL: {}", codec, audio_url);
-    println!("成功解析: {} - {}", author, title);
-
-    Ok(MusicFile {
-        path: audio_url.to_string(),
-        name: format!("{} - {}", author, title),
-        is_online: Some(true),
-    })
-}
-
-#[tauri::command]
-#[auto_collect_command]
-pub async fn get_bilibili_audio_stream(audio_url: String) -> Result<Vec<u8>, String> {
-    let client = get_client();
-    
-    let response = client
-        .get(&audio_url)
+    let audio_response = client
+        .get(audio_url)
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         .header("Referer", "https://www.bilibili.com/")
         .send()
         .await
         .map_err(|e| format!("请求音频失败: {}", e))?;
 
-    if !response.status().is_success() {
-        return Err(format!("音频请求失败: {}", response.status()));
+    if !audio_response.status().is_success() {
+        return Err(format!("音频请求失败: {}", audio_response.status()));
     }
 
-    let bytes = response
+    let bytes = audio_response
         .bytes()
         .await
         .map_err(|e| format!("读取音频数据失败: {}", e))?;
@@ -129,25 +208,83 @@ pub async fn get_bilibili_audio_stream(audio_url: String) -> Result<Vec<u8>, Str
 #[tauri::command]
 #[auto_collect_command]
 pub async fn download_bilibili_audio(
-    audio_url: String, 
+    bv_id: String,
+    page: Option<u32>,
     song_name: String, 
     download_folder: String
 ) -> Result<String, String> {
-    let client = get_client();
+    let page = page.unwrap_or(1);
+    let bv_id_raw = bv_id.trim_start_matches("BV");
     
+    let api_url = format!(
+        "https://api.bilibili.com/x/web-interface/view?bvid={}",
+        bv_id_raw
+    );
+
+    let client = get_client();
     let response = client
-        .get(&audio_url)
+        .get(&api_url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .send()
+        .await
+        .map_err(|e| format!("请求B站API失败: {}", e))?;
+
+    if !response.status().is_success() {
+        return Err(format!("B站API返回错误: {}", response.status()));
+    }
+
+    let json: serde_json::Value = response
+        .json()
+        .await
+        .map_err(|e| format!("解析B站响应失败: {}", e))?;
+
+    let data = json.get("data").ok_or("B站API返回数据为空")?;
+    
+    let pages = data["pages"].as_array().ok_or("无法获取视频分P信息")?;
+    let page_index = (page - 1) as usize;
+    let page_data = pages.get(page_index).ok_or(format!("分P {} 不存在", page))?;
+    let cid = page_data["cid"].as_u64().ok_or("无法获取分P的CID")?;
+    let aid = data["aid"].as_u64().ok_or("无法获取视频AID")?;
+
+    let play_url = format!(
+        "https://api.bilibili.com/x/player/playurl?avid={}&cid={}&qn=80&fnval=16",
+        aid, cid
+    );
+
+    let play_response = client
+        .get(&play_url)
+        .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
+        .header("Referer", "https://www.bilibili.com/")
+        .send()
+        .await
+        .map_err(|e| format!("获取播放地址失败: {}", e))?;
+
+    let play_json: serde_json::Value = play_response
+        .json()
+        .await
+        .map_err(|e| format!("解析播放地址失败: {}", e))?;
+
+    let audio_info = play_json["data"]["dash"]["audio"]
+        .as_array()
+        .and_then(|arr| arr.first());
+
+    let audio_url = audio_info
+        .and_then(|a| a["baseUrl"].as_str())
+        .ok_or("无法获取音频播放地址")?;
+
+    let audio_response = client
+        .get(audio_url)
         .header("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
         .header("Referer", "https://www.bilibili.com/")
         .send()
         .await
         .map_err(|e| format!("请求音频失败: {}", e))?;
 
-    if !response.status().is_success() {
-        return Err(format!("音频请求失败: {}", response.status()));
+    if !audio_response.status().is_success() {
+        return Err(format!("音频请求失败: {}", audio_response.status()));
     }
 
-    let bytes = response
+    let bytes = audio_response
         .bytes()
         .await
         .map_err(|e| format!("读取音频数据失败: {}", e))?;

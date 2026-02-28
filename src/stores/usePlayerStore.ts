@@ -5,6 +5,8 @@ export interface Song {
   path: string;
   name: string;
   isOnline?: boolean;
+  bvId?: string;
+  page?: number;
 }
 
 export interface Playlist {
