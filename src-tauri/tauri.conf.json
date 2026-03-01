@@ -13,14 +13,14 @@
     "windows": [
       {
         "title": "Sonic",
-        "width": 1200,
-        "height": 800,
-        "minWidth": 800,
-        "minHeight": 600,
-        "decorations": false,
-        "transparent": true,
+        "width": 400,
+        "height": 850,
+        "minWidth": 360,
+        "minHeight": 640,
+        "decorations": true,
+        "transparent": false,
         "center": true,
-        "devtools": true
+        "resizable": true
       }
     ],
 "security": {
@@ -36,7 +36,7 @@
       ]
     }
   },
-  "bundle": {
+"bundle": {
     "active": true,
     "targets": "all",
     "icon": [
@@ -45,6 +45,9 @@
       "icons/128x128@2x.png",
       "icons/icon.icns",
       "icons/icon.ico"
-    ]
+    ],
+    "android": {
+      "permissions": ["INTERNET", "READ_EXTERNAL_STORAGE", "WRITE_EXTERNAL_STORAGE"]
+    }
   }
 }

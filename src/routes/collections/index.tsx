@@ -18,11 +18,9 @@ export const Route = createFileRoute("/collections/")({
 function CollectionsComponent() {
   const {
     currentSong,
-    playQueue,
     playSong,
     playPlaylist,
     localLibrary,
-    resetPlayQueue,
     playlists,
     removeSongFromPlaylist,
     addSongToPlaylist,
@@ -33,7 +31,6 @@ function CollectionsComponent() {
 
   const search = Route.useSearch();
   const currentPlaylist = playlists.find((p) => p.id === search.playlistId);
-  const isAIMode = localLibrary.length > 0 && playQueue.length !== localLibrary.length;
   const userPlaylists = playlists;
 
   useEffect(() => {
@@ -300,17 +297,6 @@ function CollectionsComponent() {
               </div>
             ))}
           </div>
-        </div>
-      )}
-
-      {isAIMode && (
-        <div className="p-2">
-          <button
-            onClick={() => resetPlayQueue()}
-            className="bg-red-500 text-white px-4 py-2 rounded w-full"
-          >
-            退出 AI 推荐 (显示全部 {localLibrary.length} 首)
-          </button>
         </div>
       )}
     </div>
